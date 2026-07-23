@@ -9,14 +9,13 @@ frontend/.env.local
 frontend/.env.development.local
 frontend/.env.test.local
 frontend/.env.production.local
-*.json
-
-# Ignorar o arquivo de chave privada do Google Drive se houver
+# Ignorar arquivos json no geral, exceto configurações do projeto
 *.json
 !package.json
 !package-lock.json
 !tsconfig.json
 !eslint.config.mjs
+!vercel.json
 
 # Next.js Build
 .next/
