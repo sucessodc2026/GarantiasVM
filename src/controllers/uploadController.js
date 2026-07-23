@@ -4,17 +4,25 @@ const path = require('path');
 const fs = require('fs').promises;
 const { google } = require('googleapis');
 
-// Google Drive Setup
-const credentialsPath = path.join(__dirname, '../../config/credentials/google-drive.json');
-const credentials = JSON.parse(require('fs').readFileSync(credentialsPath, 'utf8'));
+// Google Drive Setup (Opcional - seguro contra ausência de arquivo de credenciais)
 const FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID;
+let drive = null;
 
-const auth = new google.auth.GoogleAuth({
-  keyFile: credentialsPath,
-  scopes: ['https://www.googleapis.com/auth/drive'],
-});
-
-const drive = google.drive({ version: 'v3', auth });
+try {
+  const credentialsPath = path.join(__dirname, '../../config/credentials/google-drive.json');
+  if (require('fs').existsSync(credentialsPath)) {
+    const auth = new google.auth.GoogleAuth({
+      keyFile: credentialsPath,
+      scopes: ['https://www.googleapis.com/auth/drive'],
+    });
+    drive = google.drive({ version: 'v3', auth });
+    console.log('✅ Google Drive API configurada com sucesso.');
+  } else {
+    console.log('ℹ️ Credenciais do Google Drive não encontradas em config/credentials/google-drive.json. O upload para o Google Drive estará desativado.');
+  }
+} catch (err) {
+  console.warn('⚠️ Erro ao inicializar o Google Drive:', err.message);
+}
 
 // Configurar multer para armazenar na memória
 const storage = multer.memoryStorage();
@@ -57,8 +65,8 @@ class UploadController {
       const tipo = file.mimetype.startsWith('image/') ? 'foto' : 'video';
       let driveUrl = null;
 
-      // Fazer upload para Google Drive
-      if (FOLDER_ID) {
+      // Fazer upload para Google Drive (apenas se credenciais estiverem configuradas)
+      if (FOLDER_ID && drive) {
         try {
           const { Readable } = require('stream');
           const bufferStream = Readable.from([file.buffer]);
