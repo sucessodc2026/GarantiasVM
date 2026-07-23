@@ -93,7 +93,7 @@ export function Sidebar() {
 
       {/* Versão */}
       <div className="px-4 pb-4">
-        <p className="text-[11px] text-[var(--text-muted)] text-center">GarantiaHub v2.0</p>
+        <p className="text-[11px] text-[var(--text-muted)] text-center">Garantias VM</p>
       </div>
     </aside>
   );

@@ -23,7 +23,7 @@ export default function RootLayout({
     >
       <head>
         <meta name="description" content="Plataforma de Gestão de Garantias" />
-        <title>GarantiaHub</title>
+        <title>Garantias VM</title>
       </head>
       <body className="min-h-full flex flex-col">
         <AuthProvider>
