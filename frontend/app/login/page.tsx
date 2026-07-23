@@ -53,19 +53,6 @@ export default function LoginPage() {
             Plataforma centralizada para registro, análise e controle de garantias com inteligência operacional.
           </p>
         </div>
-
-        <div className="flex gap-8 relative z-10">
-          {[
-            { label: 'Garantias gerenciadas', value: '10k+' },
-            { label: 'Taxa de aprovação', value: '94%' },
-            { label: 'Uptime', value: '99.9%' },
-          ].map((stat) => (
-            <div key={stat.label}>
-              <p className="text-2xl font-extrabold text-[var(--accent)] tracking-tight">{stat.value}</p>
-              <p className="text-xs text-[var(--text-muted)] mt-0.5">{stat.label}</p>
-            </div>
-          ))}
-        </div>
       </div>
 
       {/* Painel direito — formulário */}
