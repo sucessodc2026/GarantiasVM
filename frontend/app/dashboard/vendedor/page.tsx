@@ -52,7 +52,7 @@ export default function VendedorDashboardPage() {
   const [showClientesDropdown, setShowClientesDropdown] = useState(false);
 
   const [produtoBusca, setProdutoBusca] = useState('');
-  const [sugestoesProdutos, setSugestoesProdutos] = useState<{ id: string; nome: string; categoria?: string }[]>([]);
+  const [sugestoesProdutos, setSugestoesProdutos] = useState<{ id: string; nome: string; categoria?: string; foto_url?: string }[]>([]);
   const [showProdutosDropdown, setShowProdutosDropdown] = useState(false);
 
   useEffect(() => { loadGarantias(); }, []);
@@ -406,18 +406,35 @@ export default function VendedorDashboardPage() {
                             setShowProdutosDropdown(false);
                           }}
                           style={{
-                            padding: '10px 14px',
+                            padding: '8px 12px',
                             cursor: 'pointer',
                             fontSize: '13px',
                             color: 'var(--text-primary)',
                             borderBottom: '1px solid var(--border-subtle)',
-                            transition: 'background 0.1s'
+                            transition: 'background 0.1s',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px'
                           }}
                           onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-elevated)')}
                           onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                         >
-                          <p style={{ fontWeight: 600, margin: 0 }}>{p.nome}</p>
-                          {p.categoria && <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>Cat: {p.categoria}</p>}
+                          {/* Miniatura da Imagem */}
+                          <div style={{ width: '32px', height: '32px', borderRadius: '6px', overflow: 'hidden', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border-subtle)' }}>
+                            {p.foto_url ? (
+                              <img src={p.foto_url} alt={p.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold' }}>
+                                {p.nome.substring(0, 2).toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {/* Textos */}
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <p style={{ fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nome}</p>
+                            {p.categoria && <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>Cat: {p.categoria}</p>}
+                          </div>
                         </div>
                       ))}
                     </div>
