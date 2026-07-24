@@ -33,12 +33,12 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[var(--bg-base)] flex">
       {/* Painel esquerdo — branding */}
       <div className="flex-1 hidden lg:flex flex-col justify-between p-12 relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #0E0F1A 0%, #13142B 50%, #0A0B0F 100%)' }}
+        style={{ background: 'linear-gradient(135deg, #ECF2FF 0%, #FAFBFB 50%, #E8F7FF 100%)' }}
       >
         <div className="absolute top-[-80px] left-[-80px] w-[400px] h-[400px] rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(213,25,74,0.12) 0%, transparent 70%)' }} />
+          style={{ background: 'radial-gradient(circle, rgba(93,135,255,0.12) 0%, transparent 70%)' }} />
         <div className="absolute bottom-[-60px] right-[-60px] w-[360px] h-[360px] rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(231,196,56,0.10) 0%, transparent 70%)' }} />
+          style={{ background: 'radial-gradient(circle, rgba(73,190,255,0.10) 0%, transparent 70%)' }} />
 
         <div className="relative z-10">
           <img src="/logo.png" alt="GarantiaHub" className="h-32 w-auto" />
