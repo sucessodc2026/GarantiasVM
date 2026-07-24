@@ -181,15 +181,19 @@ export default function LogisticaDashboardPage() {
                       {garantia.descricao_falha}
                     </p>
                   </div>
-                  {garantia.foto_url && (
-                    <div className="w-14 h-14 rounded-lg overflow-hidden border border-[var(--border-medium)] flex-shrink-0 bg-black/20 flex items-center justify-center">
+                  <div className="w-14 h-14 rounded-lg overflow-hidden border border-[var(--border-medium)] flex-shrink-0 bg-black/20 flex items-center justify-center">
+                    {garantia.produto_foto_url ? (
                       <img 
-                        src={garantia.foto_url} 
-                        alt="Defeito do produto" 
+                        src={garantia.produto_foto_url} 
+                        alt={garantia.produto_nome} 
                         className="w-full h-full object-cover" 
                       />
-                    </div>
-                  )}
+                    ) : (
+                      <span className="text-[11px] text-[var(--text-muted)] font-bold">
+                        {garantia.produto_nome ? garantia.produto_nome.substring(0, 2).toUpperCase() : 'PR'}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Ação */}
