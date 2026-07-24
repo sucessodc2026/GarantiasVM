@@ -1,41 +1,47 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 :root {
-  --bg-base:       #0A0B0F;
-  --bg-card:       #111318;
-  --bg-elevated:   #1A1D26;
-  --bg-hover:      #1E2130;
-  --bg-input:      #0F1117;
+  --bg-base:       #FAFBFB;
+  --bg-card:       #FFFFFF;
+  --bg-elevated:   #FFFFFF;
+  --bg-hover:      #ECF2FF;
+  --bg-input:      #FFFFFF;
 
-  --border-subtle: rgba(255,255,255,0.06);
-  --border-medium: rgba(255,255,255,0.10);
-  --border-strong: rgba(255,255,255,0.18);
+  --border-subtle: #EAEFF4;
+  --border-medium: #DFE5EF;
+  --border-strong: #CBD5E1;
 
-  --accent:        #D5194A;
-  --accent-hover:  #B0153E;
-  --accent-muted:  rgba(213,25,74,0.12);
+  --accent:        #5D87FF;
+  --accent-hover:  #4570EA;
+  --accent-muted:  #ECF2FF;
 
   --brand-yellow:  #E7C438;
 
-  --success:       #10B981;
-  --success-muted: rgba(16,185,129,0.12);
+  --success:       #23AF15;
+  --success-muted: #E8F7FF;
   --warning:       #E7C438;
   --warning-muted: rgba(231,196,56,0.12);
   --danger:        #EF4444;
   --danger-muted:  rgba(239,68,68,0.12);
-  --info:          #38BDF8;
-  --info-muted:    rgba(56,189,248,0.12);
+  --info:          #49BEFF;
+  --info-muted:    #E8F7FF;
 
-  --text-primary:   #F1F5F9;
-  --text-secondary: #94A3B8;
-  --text-muted:     #475569;
+  --text-primary:   #2A3547;
+  --text-secondary: #7C8FAC;
+  --text-muted:     #7C8FAC;
 }
 
 @theme inline {
   --color-background: var(--bg-base);
   --color-foreground: var(--text-primary);
-  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 7px;
+  --radius-xl: 10px;
+  --radius-2xl: 14px;
 }
 
 *, *::before, *::after {
@@ -49,7 +55,7 @@ html {
 body {
   background: var(--bg-base);
   color: var(--text-primary);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
