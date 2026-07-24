@@ -45,20 +45,20 @@ export default function LoginPage() {
         </div>
 
         {/* Carro com Faróis Piscantes */}
-        <div className="relative z-10 w-full max-w-[340px] mx-auto aspect-square flex items-center justify-center">
+        <div className="relative z-10 w-full max-w-[350px] mx-auto aspect-square flex items-center justify-center">
           <img 
             src="/carro_login.png" 
             alt="Carro Garantias" 
-            className="w-full h-auto object-contain rounded-2xl shadow-[0_15px_30px_rgba(93,135,255,0.06)] border border-[var(--border-subtle)]" 
+            className="w-full h-auto object-contain mix-blend-multiply" 
           />
           
           {/* Brilho Farol Esquerdo */}
-          <div className="absolute left-[17.8%] top-[51%] w-7 h-7 rounded-full bg-cyan-200 pointer-events-none blur-[5px] shadow-[0_0_20px_#38bdf8] animate-farol-piscar" />
-          <div className="absolute left-[17.8%] top-[51%] w-2 h-2 rounded-full bg-white pointer-events-none blur-[0.5px] shadow-[0_0_10px_#fff] animate-farol-piscar" />
+          <div className="absolute left-[19%] top-[51%] w-6 h-6 rounded-full bg-cyan-200 pointer-events-none blur-[4px] shadow-[0_0_20px_#38bdf8] animate-farol-piscar" />
+          <div className="absolute left-[19%] top-[51%] w-2 h-2 rounded-full bg-white pointer-events-none blur-[0.5px] shadow-[0_0_10px_#fff] animate-farol-piscar" />
 
           {/* Brilho Farol Direito */}
-          <div className="absolute left-[82.2%] top-[51%] w-7 h-7 rounded-full bg-cyan-200 pointer-events-none blur-[5px] shadow-[0_0_20px_#38bdf8] animate-farol-piscar" />
-          <div className="absolute left-[82.2%] top-[51%] w-2 h-2 rounded-full bg-white pointer-events-none blur-[0.5px] shadow-[0_0_10px_#fff] animate-farol-piscar" />
+          <div className="absolute left-[81%] top-[51%] w-6 h-6 rounded-full bg-cyan-200 pointer-events-none blur-[4px] shadow-[0_0_20px_#38bdf8] animate-farol-piscar" />
+          <div className="absolute left-[81%] top-[51%] w-2 h-2 rounded-full bg-white pointer-events-none blur-[0.5px] shadow-[0_0_10px_#fff] animate-farol-piscar" />
         </div>
 
         <div className="relative z-10 max-w-sm">
