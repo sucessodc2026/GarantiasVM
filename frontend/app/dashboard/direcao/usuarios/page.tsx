@@ -27,6 +27,7 @@ import {
   EyeOff,
   UserCheck,
   UserX,
+  Share2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -71,6 +72,26 @@ export default function GerenciarUsuariosPage() {
     setTipoUsuario('vendedor'); setShowSenha(false);
   };
 
+  const handleCopiarAcesso = (usuario: any, senhaDefinida?: string) => {
+    const linkSistema = window.location.origin;
+    const tipoLabel = usuario.tipo_usuario === 'vendedor' ? 'Vendedor' : 'Logística';
+    const senhaTexto = senhaDefinida ? senhaDefinida : '[Senha Cadastrada no Sistema]';
+
+    const texto = `📋 *Dados de Acesso - Garantias VM*
+
+Olá! Aqui estão as credenciais para você acessar a nossa plataforma de gestão de garantias:
+
+🔗 *Link de Acesso:* ${linkSistema}
+✉️ *E-mail de Login:* ${usuario.email}
+🔑 *Senha de Acesso:* ${senhaTexto}
+👤 *Tipo de Acesso:* ${tipoLabel}
+
+_Acesse o link acima no seu navegador para registrar e gerenciar as solicitações de garantia._`;
+
+    navigator.clipboard.writeText(texto);
+    toast.success(`Dados de acesso de ${usuario.nome} copiados!`, { icon: '📋' });
+  };
+
   const handleCriar = async () => {
     if (!nome.trim() || !email.trim() || !senha.trim()) {
       toast.error('Nome, email e senha são obrigatórios');
@@ -82,9 +103,15 @@ export default function GerenciarUsuariosPage() {
     }
     setIsSaving(true);
     try {
-      await apiService.criarUsuario({ nome, email, senha, tipo_usuario: tipoUsuario, telefone });
+      const res = await apiService.criarUsuario({ nome, email, senha, tipo_usuario: tipoUsuario, telefone });
       toast.success(`Usuário ${nome} criado!`);
       setShowModal(false);
+      
+      // Copiar dados com a senha gerada para facilitar
+      if (res && res.usuario) {
+        handleCopiarAcesso(res.usuario, senha);
+      }
+      
       resetForm();
       loadUsuarios();
     } catch (err: any) {
@@ -118,6 +145,10 @@ export default function GerenciarUsuariosPage() {
       await apiService.alterarSenhaUsuario(selectedUsuario.id, novaSenha);
       toast.success(`Senha de ${selectedUsuario.nome} atualizada com sucesso!`);
       setShowSenhaModal(false);
+      
+      // Copiar dados do usuário com a nova senha
+      handleCopiarAcesso(selectedUsuario, novaSenha);
+      
       setNovaSenha('');
       setSelectedUsuario(null);
     } catch (err: any) {
@@ -225,7 +256,7 @@ export default function GerenciarUsuariosPage() {
         ) : (
           <div className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] animate-slide-up">
             {/* Header */}
-            <div className="grid grid-cols-[1fr_1fr_120px_100px_150px] gap-3 px-5 py-3 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
+            <div className="grid grid-cols-[1fr_1fr_120px_100px_180px] gap-3 px-5 py-3 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
               {['Usuário', 'Email', 'Tipo', 'Status', 'Ação'].map((h, idx) => (
                 <span key={h} className={`text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider ${idx === 4 ? 'text-right block w-full' : ''}`}>{h}</span>
               ))}
@@ -234,7 +265,7 @@ export default function GerenciarUsuariosPage() {
             {usuariosFiltrados.map((u, i) => (
               <div
                 key={u.id}
-                className="grid grid-cols-[1fr_1fr_120px_100px_150px] gap-3 px-5 py-3.5 items-center transition-colors hover:bg-[var(--bg-hover)]"
+                className="grid grid-cols-[1fr_1fr_120px_100px_180px] gap-3 px-5 py-3.5 items-center transition-colors hover:bg-[var(--bg-hover)]"
                 style={{ borderBottom: i < usuariosFiltrados.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -267,6 +298,13 @@ export default function GerenciarUsuariosPage() {
                   {u.ativo ? <><UserCheck size={10} /> Ativo</> : <><UserX size={10} /> Inativo</>}
                 </span>
                 <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<Share2 size={13} />}
+                    onClick={() => handleCopiarAcesso(u)}
+                    title="Copiar dados de acesso"
+                  />
                   <Button
                     variant="secondary"
                     size="sm"
