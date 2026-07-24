@@ -77,6 +77,11 @@ class ApiService {
     return response.data;
   }
 
+  async alterarSenhaUsuario(id: string, senha: string) {
+    const response = await this.api.patch(`/usuarios/${id}/senha`, { senha });
+    return response.data;
+  }
+
   // ============= GARANTIAS =============
   async criarGarantia(data: {
     cliente_id: string;

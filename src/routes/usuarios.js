@@ -15,6 +15,9 @@ router.post('/', verificarToken, verificarTipo(['direcao']), UsuarioController.c
 // Ativar / Desativar usuário (apenas direção)
 router.patch('/:id/toggle', verificarToken, verificarTipo(['direcao']), UsuarioController.toggleAtivo);
 
+// Alterar senha de usuário (apenas direção)
+router.patch('/:id/senha', verificarToken, verificarTipo(['direcao']), UsuarioController.alterarSenha);
+
 // Perfil do usuário logado
 router.get('/perfil', verificarToken, UsuarioController.perfil);
 

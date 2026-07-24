@@ -40,6 +40,11 @@ export default function GerenciarUsuariosPage() {
   const [showModal, setShowModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showSenha, setShowSenha] = useState(false);
+  const [showSenhaModal, setShowSenhaModal] = useState(false);
+  const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null);
+  const [novaSenha, setNovaSenha] = useState('');
+  const [isChangingSenha, setIsChangingSenha] = useState(false);
+  const [showNovaSenha, setShowNovaSenha] = useState(false);
 
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
@@ -96,6 +101,29 @@ export default function GerenciarUsuariosPage() {
       loadUsuarios();
     } catch {
       toast.error('Erro ao alterar status');
+    }
+  };
+
+  const handleAlterarSenha = async () => {
+    if (!selectedUsuario || !novaSenha.trim()) {
+      toast.error('A senha é obrigatória');
+      return;
+    }
+    if (novaSenha.length < 6) {
+      toast.error('A senha precisa ter pelo menos 6 caracteres');
+      return;
+    }
+    setIsChangingSenha(true);
+    try {
+      await apiService.alterarSenhaUsuario(selectedUsuario.id, novaSenha);
+      toast.success(`Senha de ${selectedUsuario.nome} atualizada com sucesso!`);
+      setShowSenhaModal(false);
+      setNovaSenha('');
+      setSelectedUsuario(null);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.erro || 'Erro ao alterar senha');
+    } finally {
+      setIsChangingSenha(false);
     }
   };
 
@@ -197,16 +225,16 @@ export default function GerenciarUsuariosPage() {
         ) : (
           <div className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] animate-slide-up">
             {/* Header */}
-            <div className="grid grid-cols-[1fr_1fr_120px_100px_100px] gap-3 px-5 py-3 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
-              {['Usuário', 'Email', 'Tipo', 'Status', 'Ação'].map(h => (
-                <span key={h} className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">{h}</span>
+            <div className="grid grid-cols-[1fr_1fr_120px_100px_150px] gap-3 px-5 py-3 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
+              {['Usuário', 'Email', 'Tipo', 'Status', 'Ação'].map((h, idx) => (
+                <span key={h} className={`text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider ${idx === 4 ? 'text-right block w-full' : ''}`}>{h}</span>
               ))}
             </div>
             {/* Linhas */}
             {usuariosFiltrados.map((u, i) => (
               <div
                 key={u.id}
-                className="grid grid-cols-[1fr_1fr_120px_100px_100px] gap-3 px-5 py-3.5 items-center transition-colors hover:bg-[var(--bg-hover)]"
+                className="grid grid-cols-[1fr_1fr_120px_100px_150px] gap-3 px-5 py-3.5 items-center transition-colors hover:bg-[var(--bg-hover)]"
                 style={{ borderBottom: i < usuariosFiltrados.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -238,14 +266,27 @@ export default function GerenciarUsuariosPage() {
                 }`}>
                   {u.ativo ? <><UserCheck size={10} /> Ativo</> : <><UserX size={10} /> Inativo</>}
                 </span>
-                <Button
-                  variant={u.ativo ? 'danger' : 'primary'}
-                  size="sm"
-                  icon={u.ativo ? <UserX size={13} /> : <UserCheck size={13} />}
-                  onClick={() => handleToggle(u)}
-                >
-                  {u.ativo ? 'Desativar' : 'Ativar'}
-                </Button>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<Lock size={13} />}
+                    onClick={() => {
+                      setSelectedUsuario(u);
+                      setNovaSenha('');
+                      setShowSenhaModal(true);
+                    }}
+                    title="Alterar Senha"
+                  />
+                  <Button
+                    variant={u.ativo ? 'danger' : 'primary'}
+                    size="sm"
+                    icon={u.ativo ? <UserX size={13} /> : <UserCheck size={13} />}
+                    onClick={() => handleToggle(u)}
+                  >
+                    {u.ativo ? 'Desativar' : 'Ativar'}
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -330,6 +371,49 @@ export default function GerenciarUsuariosPage() {
             <p className="text-[11px] text-[var(--text-muted)] mt-1.5">
               O usuário poderá alterar a senha após o primeiro acesso
             </p>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal Alterar Senha */}
+      <Modal
+        open={showSenhaModal}
+        onClose={() => { setShowSenhaModal(false); setNovaSenha(''); setSelectedUsuario(null); }}
+        title="Alterar Senha"
+        subtitle={selectedUsuario ? `Defina uma nova senha para ${selectedUsuario.nome}` : ''}
+        footer={
+          <div className="flex gap-3">
+            <Button variant="secondary" className="flex-1" onClick={() => { setShowSenhaModal(false); setNovaSenha(''); setSelectedUsuario(null); }}>
+              Cancelar
+            </Button>
+            <Button variant="primary" className="flex-[2]" loading={isChangingSenha} icon={<Lock size={16} />} onClick={handleAlterarSenha}>
+              {isChangingSenha ? 'Salvando...' : 'Salvar Nova Senha'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider block mb-1.5">
+              Nova Senha
+            </label>
+            <div className="relative">
+              <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
+              <input
+                type={showNovaSenha ? 'text' : 'password'}
+                value={novaSenha}
+                onChange={e => setNovaSenha(e.target.value)}
+                placeholder="Mínimo 6 caracteres"
+                className="w-full bg-[var(--bg-input)] border border-[var(--border-medium)] rounded-xl pl-10 pr-11 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-all duration-150 focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-muted)]"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNovaSenha(!showNovaSenha)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)] cursor-pointer"
+              >
+                {showNovaSenha ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
         </div>
       </Modal>

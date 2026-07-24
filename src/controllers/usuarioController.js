@@ -136,6 +136,39 @@ class UsuarioController {
     }
   }
 
+  // Alterar senha de um usuário (apenas direção)
+  static async alterarSenha(req, res) {
+    try {
+      const { id } = req.params;
+      const { senha } = req.body;
+
+      if (!senha || senha.trim().length < 6) {
+        return res.status(400).json({ erro: 'A senha é obrigatória e deve ter pelo menos 6 caracteres' });
+      }
+
+      // Verificar se o usuário existe
+      const usuario = await pool.query('SELECT id, nome, tipo_usuario FROM usuarios WHERE id = $1', [id]);
+      if (usuario.rows.length === 0) {
+        return res.status(404).json({ erro: 'Usuário não encontrado' });
+      }
+
+      // Segurança: Apenas a própria pessoa pode alterar a senha de contas de direção
+      if (usuario.rows[0].tipo_usuario === 'direcao' && req.usuario.id !== id) {
+        return res.status(403).json({ erro: 'Ação não permitida para este tipo de conta' });
+      }
+
+      const senhaHash = await bcrypt.hash(senha, 10);
+      await pool.query('UPDATE usuarios SET senha = $1 WHERE id = $2', [senhaHash, id]);
+
+      res.json({
+        mensagem: `Senha do usuário ${usuario.rows[0].nome} atualizada com sucesso`
+      });
+    } catch (erro) {
+      console.error('Erro ao alterar senha do usuário:', erro);
+      res.status(500).json({ erro: 'Erro ao alterar senha' });
+    }
+  }
+
   // Obter perfil do usuário
   static async perfil(req, res) {
     try {
