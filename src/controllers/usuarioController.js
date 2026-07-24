@@ -27,6 +27,9 @@ class UsuarioController {
         return res.status(401).json({ erro: 'Email ou senha inválidos' });
       }
 
+      // Atualizar último acesso no login
+      await pool.query('UPDATE usuarios SET ultimo_acesso = NOW() WHERE id = $1', [usuario.id]);
+
       const token = jwt.sign(
         { id: usuario.id, email: usuario.email, tipo_usuario: usuario.tipo_usuario },
         process.env.JWT_SECRET,
@@ -54,7 +57,7 @@ class UsuarioController {
     try {
       const { tipo_usuario } = req.query;
 
-      let query = 'SELECT id, nome, email, tipo_usuario, ativo, criado_em FROM usuarios WHERE 1=1';
+      let query = 'SELECT id, nome, email, tipo_usuario, ativo, criado_em, ultimo_acesso FROM usuarios WHERE 1=1';
       const params = [];
 
       if (tipo_usuario) {
@@ -174,8 +177,11 @@ class UsuarioController {
     try {
       const usuario_id = req.usuario.id;
 
+      // Atualiza o último acesso na tabela (heartbeat)
+      await pool.query('UPDATE usuarios SET ultimo_acesso = NOW() WHERE id = $1', [usuario_id]);
+
       const query = `
-        SELECT id, nome, email, telefone, tipo_usuario, ativo, criado_em
+        SELECT id, nome, email, telefone, tipo_usuario, ativo, criado_em, ultimo_acesso
         FROM usuarios
         WHERE id = $1;
       `;

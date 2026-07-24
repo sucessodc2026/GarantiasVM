@@ -32,6 +32,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  // Heartbeat do status do usuário logado (a cada 2 minutos)
+  useEffect(() => {
+    if (!usuario) return;
+
+    // Ping imediato no carregamento
+    apiService.getPerfil().catch(() => {});
+
+    const interval = setInterval(() => {
+      apiService.getPerfil().catch(() => {});
+    }, 120000);
+
+    return () => clearInterval(interval);
+  }, [usuario]);
+
   const login = async (email: string, senha: string) => {
     try {
       const response = await apiService.login(email, senha);

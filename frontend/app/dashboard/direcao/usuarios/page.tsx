@@ -33,6 +33,31 @@ import toast from 'react-hot-toast';
 
 type Filtro = 'todos' | 'vendedor' | 'logistica';
 
+const obterStatusOnline = (ultimoAcesso?: string) => {
+  if (!ultimoAcesso) return { online: false, texto: 'Nunca' };
+  
+  const dataAcesso = new Date(ultimoAcesso);
+  const agora = new Date();
+  const diffMs = agora.getTime() - dataAcesso.getTime();
+  const diffMinutos = Math.floor(diffMs / 60000);
+
+  if (diffMinutos < 5) {
+    return { online: true, texto: 'Online' };
+  }
+
+  if (diffMinutos < 60) {
+    return { online: false, texto: `${diffMinutos} min` };
+  }
+
+  const diffHoras = Math.floor(diffMinutos / 60);
+  if (diffHoras < 24) {
+    return { online: false, texto: `${diffHoras}h` };
+  }
+
+  const diffDias = Math.floor(diffHoras / 24);
+  return { online: false, texto: `${diffDias}d` };
+};
+
 export default function GerenciarUsuariosPage() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -256,77 +281,95 @@ _Acesse o link acima no seu navegador para registrar e gerenciar as solicitaçõ
         ) : (
           <div className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] animate-slide-up">
             {/* Header */}
-            <div className="grid grid-cols-[1fr_1fr_120px_100px_180px] gap-3 px-5 py-3 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
-              {['Usuário', 'Email', 'Tipo', 'Status', 'Ação'].map((h, idx) => (
-                <span key={h} className={`text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider ${idx === 4 ? 'text-right block w-full' : ''}`}>{h}</span>
+            <div className="grid grid-cols-[1.2fr_1.2fr_90px_120px_90px_180px] gap-3 px-5 py-3 bg-[var(--bg-elevated)] border-b border-[var(--border-subtle)]">
+              {['Usuário', 'Email', 'Tipo', 'Último Acesso', 'Status', 'Ação'].map((h, idx) => (
+                <span key={h} className={`text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider ${idx === 5 ? 'text-right block w-full' : ''}`}>{h}</span>
               ))}
             </div>
             {/* Linhas */}
-            {usuariosFiltrados.map((u, i) => (
-              <div
-                key={u.id}
-                className="grid grid-cols-[1fr_1fr_120px_100px_180px] gap-3 px-5 py-3.5 items-center transition-colors hover:bg-[var(--bg-hover)]"
-                style={{ borderBottom: i < usuariosFiltrados.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 ${
-                    u.ativo ? '' : 'opacity-45'
-                  }`}
-                    style={{
-                      background: u.tipo_usuario === 'vendedor' ? 'rgba(167,139,250,0.12)' : 'var(--info-muted)',
-                      border: `1px solid ${u.tipo_usuario === 'vendedor' ? 'rgba(167,139,250,0.25)' : 'rgba(56,189,248,0.25)'}`,
-                      color: u.tipo_usuario === 'vendedor' ? '#a78bfa' : 'var(--info)',
-                    }}>
-                    {u.nome.charAt(0).toUpperCase()}
+            {usuariosFiltrados.map((u, i) => {
+              const statusOnline = obterStatusOnline(u.ultimo_acesso);
+              return (
+                <div
+                  key={u.id}
+                  className="grid grid-cols-[1.2fr_1.2fr_90px_120px_90px_180px] gap-3 px-5 py-3.5 items-center transition-colors hover:bg-[var(--bg-hover)]"
+                  style={{ borderBottom: i < usuariosFiltrados.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                      u.ativo ? '' : 'opacity-45'
+                    }`}
+                      style={{
+                        background: u.tipo_usuario === 'vendedor' ? 'rgba(167,139,250,0.12)' : 'var(--info-muted)',
+                        border: `1px solid ${u.tipo_usuario === 'vendedor' ? 'rgba(167,139,250,0.25)' : 'rgba(56,189,248,0.25)'}`,
+                        color: u.tipo_usuario === 'vendedor' ? '#a78bfa' : 'var(--info)',
+                      }}>
+                      {u.nome.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className={`text-sm font-bold truncate ${u.ativo ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>{u.nome}</p>
+                      {u.telefone && <p className="text-[11px] text-[var(--text-muted)]">{u.telefone}</p>}
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className={`text-sm font-bold truncate ${u.ativo ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>{u.nome}</p>
-                    {u.telefone && <p className="text-[11px] text-[var(--text-muted)]">{u.telefone}</p>}
+                  <p className="text-sm text-[var(--text-secondary)] truncate">{u.email}</p>
+                  <div>
+                    {u.tipo_usuario === 'vendedor' ? (
+                      <Badge variant="info" className="!text-[11px]"><ShieldCheck size={10} /> Vendedor</Badge>
+                    ) : (
+                      <Badge variant="info" className="!text-[11px]"><Truck size={10} /> Logística</Badge>
+                    )}
+                  </div>
+                  
+                  {/* Último Acesso / Heartbeat Status */}
+                  <div className="flex items-center min-w-0">
+                    {statusOnline.online ? (
+                      <span className="flex items-center gap-1.5 font-bold text-emerald-400 text-xs">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 block animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.7)]" />
+                        Online
+                      </span>
+                    ) : (
+                      <span className="text-xs text-[var(--text-muted)] truncate">
+                        {statusOnline.texto}
+                      </span>
+                    )}
+                  </div>
+
+                  <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full w-fit ${
+                    u.ativo ? 'bg-[var(--success-muted)] text-[var(--success)]' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
+                  }`}>
+                    {u.ativo ? <><UserCheck size={10} /> Ativo</> : <><UserX size={10} /> Inativo</>}
+                  </span>
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Share2 size={13} />}
+                      onClick={() => handleCopiarAcesso(u)}
+                      title="Copiar dados de acesso"
+                    />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Lock size={13} />}
+                      onClick={() => {
+                        setSelectedUsuario(u);
+                        setNovaSenha('');
+                        setShowSenhaModal(true);
+                      }}
+                      title="Alterar Senha"
+                    />
+                    <Button
+                      variant={u.ativo ? 'danger' : 'primary'}
+                      size="sm"
+                      icon={u.ativo ? <UserX size={13} /> : <UserCheck size={13} />}
+                      onClick={() => handleToggle(u)}
+                    >
+                      {u.ativo ? 'Desativar' : 'Ativar'}
+                    </Button>
                   </div>
                 </div>
-                <p className="text-sm text-[var(--text-secondary)] truncate">{u.email}</p>
-                <div>
-                  {u.tipo_usuario === 'vendedor' ? (
-                    <Badge variant="info" className="!text-[11px]"><ShieldCheck size={10} /> Vendedor</Badge>
-                  ) : (
-                    <Badge variant="info" className="!text-[11px]"><Truck size={10} /> Logística</Badge>
-                  )}
-                </div>
-                <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full w-fit ${
-                  u.ativo ? 'bg-[var(--success-muted)] text-[var(--success)]' : 'bg-[var(--bg-elevated)] text-[var(--text-muted)]'
-                }`}>
-                  {u.ativo ? <><UserCheck size={10} /> Ativo</> : <><UserX size={10} /> Inativo</>}
-                </span>
-                <div className="flex gap-2 justify-end">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    icon={<Share2 size={13} />}
-                    onClick={() => handleCopiarAcesso(u)}
-                    title="Copiar dados de acesso"
-                  />
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    icon={<Lock size={13} />}
-                    onClick={() => {
-                      setSelectedUsuario(u);
-                      setNovaSenha('');
-                      setShowSenhaModal(true);
-                    }}
-                    title="Alterar Senha"
-                  />
-                  <Button
-                    variant={u.ativo ? 'danger' : 'primary'}
-                    size="sm"
-                    icon={u.ativo ? <UserX size={13} /> : <UserCheck size={13} />}
-                    onClick={() => handleToggle(u)}
-                  >
-                    {u.ativo ? 'Desativar' : 'Ativar'}
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </DashboardLayout>

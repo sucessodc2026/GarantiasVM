@@ -9,6 +9,7 @@ export interface Usuario {
   tipo_usuario: TipoUsuario;
   ativo: boolean;
   criado_em: string;
+  ultimo_acesso?: string;
 }
 
 // Tipos de garantia
