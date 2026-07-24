@@ -174,11 +174,22 @@ export default function LogisticaDashboardPage() {
                 </div>
 
                 {/* Produto / Falha */}
-                <div className="bg-[var(--bg-elevated)] rounded-xl px-4 py-3 mb-4 border border-[var(--border-subtle)]">
-                  <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">{garantia.produto_nome}</p>
-                  <p className="text-xs text-[var(--text-muted)] leading-relaxed line-clamp-2">
-                    {garantia.descricao_falha}
-                  </p>
+                <div className="bg-[var(--bg-elevated)] rounded-xl px-4 py-3 mb-4 border border-[var(--border-subtle)] flex gap-4 items-start justify-between min-h-[86px]">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">{garantia.produto_nome}</p>
+                    <p className="text-xs text-[var(--text-muted)] leading-relaxed line-clamp-2">
+                      {garantia.descricao_falha}
+                    </p>
+                  </div>
+                  {garantia.foto_url && (
+                    <div className="w-14 h-14 rounded-lg overflow-hidden border border-[var(--border-medium)] flex-shrink-0 bg-black/20 flex items-center justify-center">
+                      <img 
+                        src={garantia.foto_url} 
+                        alt="Defeito do produto" 
+                        className="w-full h-full object-cover" 
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Ação */}
