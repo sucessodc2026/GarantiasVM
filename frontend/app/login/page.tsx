@@ -33,40 +33,40 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[var(--bg-base)] flex">
       {/* Painel esquerdo — branding */}
       <div className="flex-1 hidden lg:flex flex-col justify-between p-12 relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #ECF2FF 0%, #FAFBFB 50%, #E8F7FF 100%)' }}
+        style={{ background: 'linear-gradient(135deg, #070A13 0%, #0C0F17 50%, #04060A 100%)' }}
       >
         <div className="absolute top-[-80px] left-[-80px] w-[400px] h-[400px] rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(93,135,255,0.12) 0%, transparent 70%)' }} />
+          style={{ background: 'radial-gradient(circle, rgba(93,135,255,0.06) 0%, transparent 70%)' }} />
         <div className="absolute bottom-[-60px] right-[-60px] w-[360px] h-[360px] rounded-full pointer-events-none"
-          style={{ background: 'radial-gradient(circle, rgba(73,190,255,0.10) 0%, transparent 70%)' }} />
+          style={{ background: 'radial-gradient(circle, rgba(73,190,255,0.04) 0%, transparent 70%)' }} />
 
         <div className="relative z-10">
-          <img src="/logo.png" alt="GarantiaHub" className="h-32 w-auto" />
+          <img src="/logo.png" alt="GarantiaHub" className="h-32 w-auto brightness-0 invert" />
         </div>
 
         {/* Carro com Faróis Piscantes */}
-        <div className="relative z-10 w-full max-w-[350px] mx-auto aspect-square flex items-center justify-center">
+        <div className="relative z-10 w-full max-w-[360px] mx-auto aspect-square flex items-center justify-center">
           <img 
             src="/carro_login.png" 
             alt="Carro Garantias" 
-            className="w-full h-auto object-contain mix-blend-multiply" 
+            className="w-full h-auto object-contain mix-blend-screen" 
           />
           
           {/* Brilho Farol Esquerdo */}
-          <div className="absolute left-[19%] top-[51%] w-6 h-6 rounded-full bg-cyan-200 pointer-events-none blur-[4px] shadow-[0_0_20px_#38bdf8] animate-farol-piscar" />
+          <div className="absolute left-[19%] top-[51%] w-6 h-6 rounded-full bg-cyan-300 pointer-events-none blur-[4px] shadow-[0_0_20px_#22d3ee] animate-farol-piscar" />
           <div className="absolute left-[19%] top-[51%] w-2 h-2 rounded-full bg-white pointer-events-none blur-[0.5px] shadow-[0_0_10px_#fff] animate-farol-piscar" />
 
           {/* Brilho Farol Direito */}
-          <div className="absolute left-[81%] top-[51%] w-6 h-6 rounded-full bg-cyan-200 pointer-events-none blur-[4px] shadow-[0_0_20px_#38bdf8] animate-farol-piscar" />
+          <div className="absolute left-[81%] top-[51%] w-6 h-6 rounded-full bg-cyan-300 pointer-events-none blur-[4px] shadow-[0_0_20px_#22d3ee] animate-farol-piscar" />
           <div className="absolute left-[81%] top-[51%] w-2 h-2 rounded-full bg-white pointer-events-none blur-[0.5px] shadow-[0_0_10px_#fff] animate-farol-piscar" />
         </div>
 
         <div className="relative z-10 max-w-sm">
-          <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-[var(--text-primary)] mb-5">
+          <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-white mb-5">
             Gestão de garantias{' '}
-            <span className="text-[var(--accent)]">simplificada</span>
+            <span className="text-[#5D87FF]">simplificada</span>
           </h1>
-          <p className="text-base text-[var(--text-secondary)] leading-relaxed">
+          <p className="text-base text-slate-400 leading-relaxed">
             Plataforma centralizada para registro, análise e controle de garantias com inteligência operacional.
           </p>
         </div>
