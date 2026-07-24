@@ -110,3 +110,16 @@ body {
 .animate-spin {
   animation: spin 0.7s linear infinite;
 }
+
+@keyframes farolPiscar {
+  0%, 6% { opacity: 0.1; transform: scale(0.9) translate(-50%, -50%); }
+  2% { opacity: 1; transform: scale(1.2) translate(-50%, -50%); }
+  4% { opacity: 0.2; transform: scale(0.95) translate(-50%, -50%); }
+  5% { opacity: 1; transform: scale(1.2) translate(-50%, -50%); }
+  7%, 80% { opacity: 0.9; transform: scale(1) translate(-50%, -50%); }
+  85%, 100% { opacity: 0.1; transform: scale(0.9) translate(-50%, -50%); }
+}
+
+.animate-farol-piscar {
+  animation: farolPiscar 5s infinite cubic-bezier(0.4, 0, 0.2, 1);
+}
