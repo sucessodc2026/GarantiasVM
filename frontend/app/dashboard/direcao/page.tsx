@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { Tabs } from '@/components/ui/Tabs';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { CardSkeleton, ListSkeleton } from '@/components/ui/Skeleton';
 import { apiService } from '@/services/api';
 import { Garantia, MetricasGerais, VendedorMetrica, ClienteRepetidor, ProdutoComDefeito, Alerta } from '@/types';
@@ -32,8 +33,17 @@ import {
   Image,
   Video,
   Search,
+  ShieldCheck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+const resumoItens = (g: Garantia) => {
+  const n = g.itens?.length || 0;
+  if (n === 0) return g.produto_nome || '';
+  if (n === 1) return `${g.itens![0].quantidade > 1 ? g.itens![0].quantidade + 'x ' : ''}${g.itens![0].nome}`;
+  const pecas = g.itens!.reduce((t, i) => t + i.quantidade, 0);
+  return `${n} produtos · ${pecas} peças`;
+};
 
 export default function DirecaoDashboardPage() {
   const { usuario } = useAuth();
@@ -122,10 +132,10 @@ export default function DirecaoDashboardPage() {
         {/* KPIs */}
         {metricas ? (
           <div className="grid grid-cols-4 gap-3 mb-8 animate-slide-up">
-            <KpiCard label="Total de Garantias" value={metricas.total_garantias} icon={<TrendingUp size={18} />} />
-            <KpiCard label="Processadas" value={metricas.processadas} subtitle="Garantias aprovadas" icon={<CheckCircle size={18} />} />
-            <KpiCard label="Pendentes" value={metricas.pendentes} subtitle="Aguardando análise" icon={<Clock size={18} />} />
-            <KpiCard label="Taxa de Aprovação" value={`${metricas.taxa_aprovacao}%`} icon={<Zap size={18} />} />
+            <KpiCard tone="crimson" label="Total de Garantias" value={metricas.total_garantias} subtitle="Últimos 30 dias" icon={<TrendingUp size={18} />} />
+            <KpiCard tone="success" label="Processadas" value={metricas.processadas} subtitle="Garantias aprovadas" icon={<CheckCircle size={18} />} />
+            <KpiCard tone="warning" label="Pendentes" value={metricas.pendentes} subtitle="Aguardando análise" icon={<Clock size={18} />} />
+            <KpiCard tone="info"    label="Taxa de Aprovação" value={`${metricas.taxa_aprovacao}%`} subtitle="Aprovadas / total" icon={<Zap size={18} />} />
           </div>
         ) : (
           <div className="grid grid-cols-4 gap-3 mb-8">
@@ -193,11 +203,13 @@ export default function DirecaoDashboardPage() {
         {isLoadingGarantias ? (
           <ListSkeleton rows={4} />
         ) : garantias.length === 0 ? (
-          <Card className="mb-6">
-            <p className="text-sm text-[var(--text-muted)] text-center py-8">
-              Nenhuma garantia encontrada
-            </p>
-          </Card>
+          <div className="mb-6">
+            <EmptyState
+              icon={<ShieldCheck size={22} />}
+              title="Nenhuma garantia encontrada"
+              description="Assim que os vendedores registrarem solicitações, elas aparecem aqui."
+            />
+          </div>
         ) : (
           <div className="space-y-2 mb-8 animate-slide-up">
             {garantias.slice(0, 10).map((g) => (
@@ -220,7 +232,7 @@ export default function DirecaoDashboardPage() {
                     <p className="text-xs text-[var(--text-muted)]">Vendedor: {g.vendedor_nome}</p>
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm text-[var(--text-secondary)] truncate">{g.produto_nome}</p>
+                    <p className="text-sm text-[var(--text-secondary)] truncate">{resumoItens(g)}</p>
                   </div>
                   <div className="text-xs text-[var(--text-muted)] flex items-center gap-1.5">
                     <Calendar size={12} />
@@ -353,7 +365,19 @@ export default function DirecaoDashboardPage() {
                     />
                   )}
                   <div className="min-w-0 flex-1">
-                    <InfoRow icon={<Tag size={14} />} label={drawerGarantia.produto_nome || ''} bold />
+                    <>
+                      {(drawerGarantia.itens && drawerGarantia.itens.length > 0
+                        ? drawerGarantia.itens
+                        : [{ produto_id: 'unico', nome: drawerGarantia.produto_nome || '', familia: undefined, variacao: undefined, quantidade: 1 }]
+                      ).map((item) => (
+                        <InfoRow
+                          key={item.produto_id}
+                          icon={<Tag size={14} />}
+                          label={`${item.quantidade > 1 ? item.quantidade + 'x ' : ''}${item.familia || item.nome}${item.variacao ? ' · ' + item.variacao : ''}`}
+                          bold
+                        />
+                      ))}
+                    </>
                     {drawerGarantia.produto_categoria && (
                       <InfoRow icon={<Tag size={14} />} label={drawerGarantia.produto_categoria || ''} muted />
                     )}
@@ -392,8 +416,13 @@ export default function DirecaoDashboardPage() {
                 <div className="flex items-center gap-2">
                   {statusBadge(drawerGarantia.status)}
                   {drawerGarantia.observacoes && (
-                    <span className="text-xs text-[var(--text-muted)] italic ml-2">
-                      &ldquo;{drawerGarantia.observacoes}&rdquo;
+                    <span className="text-xs text-[var(--text-muted)] ml-2">
+                      Protocolo: <span className="font-semibold text-[var(--text-secondary)]">{drawerGarantia.observacoes}</span>
+                    </span>
+                  )}
+                  {drawerGarantia.motivo_rejeicao && (
+                    <span className="text-xs text-[var(--danger)] ml-2">
+                      Motivo: <span className="font-semibold">{drawerGarantia.motivo_rejeicao}</span>
                     </span>
                   )}
                 </div>

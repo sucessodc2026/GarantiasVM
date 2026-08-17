@@ -1,0 +1,126 @@
+<style>
+  body { background: linear-gradient(135deg,#070A13,#0C0F17 50%,#04060A); margin:0; display:flex; align-items:center; justify-content:center; height:100vh; }
+  .wrap { width: 560px; }
+  @keyframes farolSvg {
+    0%,3%{opacity:.12} 2%{opacity:1} 5%{opacity:.22} 7%{opacity:1} 9%,84%{opacity:.95} 90%,100%{opacity:.12}
+  }
+  .animate-farol-svg { animation: farolSvg 5s infinite cubic-bezier(.4,0,.2,1); }
+</style>
+<div class="wrap">
+<svg viewBox="0 0 460 240" xmlns="http://www.w3.org/2000/svg" style="width:100%">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6C7789"/>
+      <stop offset="10%" stop-color="#4A5464"/>
+      <stop offset="30%" stop-color="#2C3340"/>
+      <stop offset="62%" stop-color="#171C25"/>
+      <stop offset="100%" stop-color="#090C12"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0%" stop-color="#3B4A63"/>
+      <stop offset="45%" stop-color="#161D2B"/>
+      <stop offset="100%" stop-color="#0A0E15"/>
+    </linearGradient>
+    <linearGradient id="grille" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#161B26"/>
+      <stop offset="100%" stop-color="#05070C"/>
+    </linearGradient>
+    <linearGradient id="chrome" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#9FB0CC"/>
+      <stop offset="40%" stop-color="#5A6880"/>
+      <stop offset="100%" stop-color="#242C3B"/>
+    </linearGradient>
+    <linearGradient id="bumper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#242B38"/>
+      <stop offset="100%" stop-color="#0A0D14"/>
+    </linearGradient>
+    <radialGradient id="sombra" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#000" stop-opacity=".9"/>
+      <stop offset="62%" stop-color="#000" stop-opacity=".3"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="poca" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#DCF4FF" stop-opacity=".42"/>
+      <stop offset="100%" stop-color="#DCF4FF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-200%" y="-200%" width="500%" height="500%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <ellipse cx="230" cy="198" rx="205" ry="17" fill="url(#sombra)"/>
+
+  <!-- pneus -->
+  <path d="M 16 138 h 32 v 48 a 8 8 0 0 1 -8 8 h -14 a 12 12 0 0 1 -12 -12 z" fill="#06080D"/>
+  <path d="M 444 138 h -32 v 48 a 8 8 0 0 0 8 8 h 14 a 12 12 0 0 0 12 -12 z" fill="#06080D"/>
+
+  <!-- SILHUETA CONTINUA: capo + cabine integrados -->
+  <path d="M 22 186
+           C 12 156, 20 130, 48 121
+           L 104 106
+           C 122 97, 138 92, 158 89
+           C 172 64, 196 52, 230 52
+           C 264 52, 288 64, 302 89
+           C 322 92, 338 97, 356 106
+           L 412 121
+           C 440 130, 448 156, 438 186
+           Z" fill="url(#body)"/>
+
+  <!-- para-brisa -->
+  <path d="M 174 88 C 186 68, 205 59, 230 59 C 255 59, 274 68, 286 88 C 268 84, 192 84, 174 88 Z" fill="url(#glass)"/>
+  <path d="M 186 85 C 194 71, 208 63, 224 61 L 206 85 Z" fill="#A8C0E4" opacity=".13"/>
+
+  <!-- linha do capo -->
+  <path d="M 158 92 C 190 84, 270 84, 302 92" stroke="#93A3BD" stroke-width="1.2" fill="none" opacity=".3"/>
+  <!-- power dome -->
+  <path d="M 192 94 C 197 108, 199 116, 199 124" stroke="#93A3BD" stroke-width="1.2" fill="none" opacity=".28"/>
+  <path d="M 268 94 C 263 108, 261 116, 261 124" stroke="#93A3BD" stroke-width="1.2" fill="none" opacity=".28"/>
+
+  <!-- brilho do ombro -->
+  <path d="M 106 108 C 150 94, 310 94, 354 108 L 350 115 C 306 102, 154 102, 110 115 Z" fill="#C3D2E8" opacity=".16"/>
+
+  <!-- para-choque inferior (volume) -->
+  <path d="M 34 148 C 30 168, 32 180, 36 188 L 424 188 C 428 180, 430 168, 426 148 Z" fill="url(#bumper)" opacity=".92"/>
+
+  <!-- FAROIS: anel duplo -->
+  <path d="M 58 118 L 152 108 L 155 132 L 61 139 Z" fill="#0B1018" opacity=".9"/>
+  <path d="M 402 118 L 308 108 L 305 132 L 399 139 Z" fill="#0B1018" opacity=".9"/>
+
+  <g class="animate-farol-svg">
+    <ellipse cx="95" cy="192" rx="58" ry="10" fill="url(#poca)"/>
+    <ellipse cx="365" cy="192" rx="58" ry="10" fill="url(#poca)"/>
+    <g filter="url(#glow)">
+      <circle cx="84" cy="126" r="9.5" fill="none" stroke="#EAF9FF" stroke-width="2.8"/>
+      <circle cx="120" cy="121" r="9.5" fill="none" stroke="#EAF9FF" stroke-width="2.8"/>
+      <circle cx="376" cy="126" r="9.5" fill="none" stroke="#EAF9FF" stroke-width="2.8"/>
+      <circle cx="340" cy="121" r="9.5" fill="none" stroke="#EAF9FF" stroke-width="2.8"/>
+    </g>
+    <circle cx="84" cy="126" r="3" fill="#fff"/>
+    <circle cx="120" cy="121" r="3" fill="#fff"/>
+    <circle cx="376" cy="126" r="3" fill="#fff"/>
+    <circle cx="340" cy="121" r="3" fill="#fff"/>
+  </g>
+
+  <!-- GRADE DUPLA grande -->
+  <rect x="190" y="128" width="36" height="54" rx="7" fill="url(#chrome)"/>
+  <rect x="234" y="128" width="36" height="54" rx="7" fill="url(#chrome)"/>
+  <rect x="193" y="131" width="30" height="48" rx="5" fill="url(#grille)"/>
+  <rect x="237" y="131" width="30" height="48" rx="5" fill="url(#grille)"/>
+  <g stroke="#3B475E" stroke-width="1.6" opacity=".85">
+    <path d="M 199 134 L 199 176"/><path d="M 208 134 L 208 176"/><path d="M 217 134 L 217 176"/>
+    <path d="M 243 134 L 243 176"/><path d="M 252 134 L 252 176"/><path d="M 261 134 L 261 176"/>
+  </g>
+
+  <!-- entradas laterais -->
+  <path d="M 56 152 L 172 152 L 164 180 L 64 180 Z" fill="url(#grille)"/>
+  <path d="M 404 152 L 288 152 L 296 180 L 396 180 Z" fill="url(#grille)"/>
+  <g stroke="#2A3242" stroke-width="1" opacity=".55">
+    <path d="M 62 162 L 169 162"/><path d="M 291 162 L 398 162"/>
+  </g>
+
+  <!-- splitter -->
+  <path d="M 40 182 L 420 182 L 414 191 L 46 191 Z" fill="#070A10"/>
+  <path d="M 50 183.5 L 410 183.5" stroke="#5C6980" stroke-width="1" opacity=".45"/>
+</svg>
+</div>

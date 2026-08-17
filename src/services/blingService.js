@@ -1,171 +1,157 @@
 const axios = require('axios');
 
+const AUTH_BASE = 'https://www.bling.com.br/Api/v3/oauth';
+const API_BASE = 'https://www.bling.com.br/Api/v3';
+
+// Integração via OAuth2 (API v3 do Bling). O client_id/secret ficam só no
+// .env do servidor; o access/refresh token ficam no banco (tabela
+// configuracoes), porque precisam sobreviver a reinícios do processo.
 class BlingService {
-  constructor(apiKey) {
-    this.apiKey = apiKey;
-    this.baseURL = 'https://api.bling.com.br/b/api/v2';
+  // Monta a URL pra onde a Direção é mandada pra autorizar o app.
+  static getAuthUrl(state) {
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: process.env.BLING_CLIENT_ID,
+      state,
+      redirect_uri: process.env.BLING_REDIRECT_URI,
+    });
+    return `${AUTH_BASE}/authorize?${params.toString()}`;
+  }
+
+  static _basicAuthHeader() {
+    const cred = Buffer.from(`${process.env.BLING_CLIENT_ID}:${process.env.BLING_CLIENT_SECRET}`).toString('base64');
+    return `Basic ${cred}`;
+  }
+
+  // Troca o "code" que o Bling devolveu no callback pelo primeiro par de tokens.
+  static async exchangeCode(code) {
+    const response = await axios.post(
+      `${AUTH_BASE}/token`,
+      new URLSearchParams({
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: process.env.BLING_REDIRECT_URI,
+      }),
+      { headers: { Authorization: BlingService._basicAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+    return response.data; // { access_token, refresh_token, expires_in, ... }
+  }
+
+  // O access_token do Bling expira em ~6h; usa o refresh_token pra renovar sem pedir login de novo.
+  static async refreshToken(refreshToken) {
+    const response = await axios.post(
+      `${AUTH_BASE}/token`,
+      new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }),
+      { headers: { Authorization: BlingService._basicAuthHeader(), 'Content-Type': 'application/x-www-form-urlencoded' } }
+    );
+    return response.data;
+  }
+
+  constructor(accessToken) {
     this.client = axios.create({
-      baseURL: this.baseURL,
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-      },
+      baseURL: API_BASE,
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
   }
 
-  // ============= CLIENTES =============
-  async listarClientes(filtro = '') {
-    try {
-      let url = '/contatos?formato=json';
+  // ============= CLIENTES (contatos) =============
+  // Uma página (100 no máximo) — usado pra busca pontual no /bling/clientes.
+  async listarClientes(termo = '') {
+    const params = { pagina: 1, limite: 100 };
+    if (termo) params.pesquisa = termo;
+    const response = await this.client.get('/contatos', { params });
+    return (response.data.data || []).map(BlingService._mapContato);
+  }
 
-      if (filtro) {
-        url += `&nome=${encodeURIComponent(filtro)}`;
-      }
+  static _mapContato(c) {
+    return {
+      id: c.id,
+      nome: c.nome,
+      email: c.email,
+      telefone: c.telefone || c.celular,
+      cpf_cnpj: c.numeroDocumento,
+    };
+  }
 
-      const response = await this.client.get(url);
-
-      if (response.data.retorno?.contatos) {
-        return response.data.retorno.contatos.map((c) => ({
-          id: c.contato.id,
-          nome: c.contato.nome,
-          email: c.contato.email,
-          telefone: c.contato.telefone,
-          cpf_cnpj: c.contato.cpf_cnpj,
-        }));
-      }
-
-      return [];
-    } catch (erro) {
-      console.error('Erro ao listar clientes do Bling:', erro.message);
-      throw erro;
+  // Percorre todas as páginas — usado na sincronização, que precisa da base inteira.
+  // O Bling limita a 3 req/s, por isso o intervalo entre páginas.
+  async listarTodosClientes() {
+    const todos = [];
+    let pagina = 1;
+    while (true) {
+      const response = await this.client.get('/contatos', { params: { pagina, limite: 100 } });
+      const pagina_dados = response.data.data || [];
+      todos.push(...pagina_dados.map(BlingService._mapContato));
+      if (pagina_dados.length < 100) break;
+      pagina++;
+      await new Promise((r) => setTimeout(r, 400));
     }
+    return todos;
   }
 
   async obterCliente(id) {
-    try {
-      const response = await this.client.get(`/contatos/${id}?formato=json`);
-
-      if (response.data.retorno?.contatos) {
-        const c = response.data.retorno.contatos[0].contato;
-        return {
-          id: c.id,
-          nome: c.nome,
-          email: c.email,
-          telefone: c.telefone,
-          cpf_cnpj: c.cpf_cnpj,
-          endereco: c.endereco,
-          numero: c.numero,
-          cidade: c.cidade,
-          estado: c.estado,
-        };
-      }
-
-      return null;
-    } catch (erro) {
-      console.error('Erro ao obter cliente do Bling:', erro.message);
-      throw erro;
-    }
+    const response = await this.client.get(`/contatos/${id}`);
+    const c = response.data.data;
+    if (!c) return null;
+    return {
+      id: c.id,
+      nome: c.nome,
+      email: c.email,
+      telefone: c.telefone || c.celular,
+      cpf_cnpj: c.numeroDocumento,
+      endereco: c.endereco?.geral?.endereco,
+      cidade: c.endereco?.geral?.municipio,
+    };
   }
 
   // ============= PRODUTOS =============
-  async listarProdutos(filtro = '') {
-    try {
-      let url = '/produtos?formato=json&limite=100';
-
-      if (filtro) {
-        url += `&nome=${encodeURIComponent(filtro)}`;
-      }
-
-      const response = await this.client.get(url);
-
-      if (response.data.retorno?.produtos) {
-        return response.data.retorno.produtos.map((p) => ({
-          id: p.produto.id,
-          nome: p.produto.nome,
-          descricao: p.produto.descricao,
-          sku: p.produto.sku,
-          preco: p.produto.preco,
-          categoria: p.produto.categoria,
-          estoque: p.produto.estoque,
-        }));
-      }
-
-      return [];
-    } catch (erro) {
-      console.error('Erro ao listar produtos do Bling:', erro.message);
-      throw erro;
-    }
+  async listarProdutos(termo = '') {
+    const params = { pagina: 1, limite: 100 };
+    if (termo) params.pesquisa = termo;
+    const response = await this.client.get('/produtos', { params });
+    return (response.data.data || []).map((p) => ({
+      id: p.id,
+      nome: p.nome,
+      descricao: p.descricaoCurta,
+      sku: p.codigo,
+      preco: p.preco,
+    }));
   }
 
   async obterProduto(id) {
-    try {
-      const response = await this.client.get(`/produtos/${id}?formato=json`);
-
-      if (response.data.retorno?.produtos) {
-        const p = response.data.retorno.produtos[0].produto;
-        return {
-          id: p.id,
-          nome: p.nome,
-          descricao: p.descricao,
-          sku: p.sku,
-          preco: p.preco,
-          categoria: p.categoria,
-          estoque: p.estoque,
-          fabricante: p.fabricante,
-        };
-      }
-
-      return null;
-    } catch (erro) {
-      console.error('Erro ao obter produto do Bling:', erro.message);
-      throw erro;
-    }
+    const response = await this.client.get(`/produtos/${id}`);
+    const p = response.data.data;
+    if (!p) return null;
+    return { id: p.id, nome: p.nome, descricao: p.descricaoCurta, sku: p.codigo, preco: p.preco };
   }
 
   // ============= SINCRONIZAR COM DB LOCAL =============
+  // Casa pelo CPF/CNPJ (chave natural já usada no resto do app), não pelo ID
+  // do Bling — o id local é uuid e o do Bling é numérico, não dá pra usar
+  // um no lugar do outro.
   async sincronizarClientes(pool) {
-    try {
-      console.log('📥 Sincronizando clientes do Bling...');
-      const clientes = await this.listarClientes();
-
-      for (const cliente of clientes) {
+    const clientes = await this.listarTodosClientes();
+    let count = 0;
+    for (const cliente of clientes) {
+      if (!cliente.nome) continue;
+      if (cliente.cpf_cnpj) {
         await pool.query(
-          `INSERT INTO clientes (id, nome, telefone, email)
+          `INSERT INTO clientes (nome, telefone, email, cpf_cnpj)
            VALUES ($1, $2, $3, $4)
-           ON CONFLICT (id) DO UPDATE SET
-           nome = $2, telefone = $3, email = $4, atualizado_em = CURRENT_TIMESTAMP`,
-          [cliente.id, cliente.nome, cliente.telefone, cliente.email]
+           ON CONFLICT (cpf_cnpj) WHERE cpf_cnpj IS NOT NULL DO UPDATE SET
+           nome = $1, telefone = $2, email = $3`,
+          [cliente.nome, cliente.telefone || null, cliente.email || null, cliente.cpf_cnpj]
+        );
+      } else {
+        // ponytail: sem CPF/CNPJ não dá pra deduplicar com segurança — insere direto.
+        await pool.query(
+          `INSERT INTO clientes (nome, telefone, email) VALUES ($1, $2, $3)`,
+          [cliente.nome, cliente.telefone || null, cliente.email || null]
         );
       }
-
-      console.log(`✓ ${clientes.length} clientes sincronizados`);
-      return clientes.length;
-    } catch (erro) {
-      console.error('Erro ao sincronizar clientes:', erro);
-      throw erro;
+      count++;
     }
-  }
-
-  async sincronizarProdutos(pool) {
-    try {
-      console.log('📥 Sincronizando produtos do Bling...');
-      const produtos = await this.listarProdutos();
-
-      for (const produto of produtos) {
-        await pool.query(
-          `INSERT INTO produtos (id, nome, descricao, categoria)
-           VALUES ($1, $2, $3, $4)
-           ON CONFLICT (id) DO UPDATE SET
-           nome = $2, descricao = $3, categoria = $4, atualizado_em = CURRENT_TIMESTAMP`,
-          [produto.id, produto.nome, produto.descricao, produto.categoria]
-        );
-      }
-
-      console.log(`✓ ${produtos.length} produtos sincronizados`);
-      return produtos.length;
-    } catch (erro) {
-      console.error('Erro ao sincronizar produtos:', erro);
-      throw erro;
-    }
+    return count;
   }
 }
 

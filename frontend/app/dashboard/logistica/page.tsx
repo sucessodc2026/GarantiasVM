@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PrivateRoute } from '@/components/PrivateRoute';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Spinner } from '@/components/ui/Spinner';
-import { Tabs } from '@/components/ui/Tabs';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ListSkeleton } from '@/components/ui/Skeleton';
 import { apiService } from '@/services/api';
@@ -30,13 +30,24 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export default function LogisticaDashboardPage() {
+const resumoItens = (g: Garantia) => {
+  const n = g.itens?.length || 0;
+  if (n === 0) return g.produto_nome || '';
+  if (n === 1) return `${g.itens![0].quantidade > 1 ? g.itens![0].quantidade + 'x ' : ''}${g.itens![0].nome}`;
+  const pecas = g.itens!.reduce((t, i) => t + i.quantidade, 0);
+  return `${n} produtos · ${pecas} peças`;
+};
+
+function LogisticaDashboardPageConteudo() {
   const [garantias, setGarantias] = useState<Garantia[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState<string>('pendente');
+  const searchParams = useSearchParams();
+  const filterStatus = searchParams.get('status') || 'pendente';
 
   const [drawerGarantia, setDrawerGarantia] = useState<Garantia | null>(null);
   const [observacoes, setObservacoes] = useState('');
+  const [motivo, setMotivo] = useState('');
+  const [modoNegar, setModoNegar] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => { loadGarantias(); }, [filterStatus]);
@@ -56,6 +67,8 @@ export default function LogisticaDashboardPage() {
   const fecharDrawer = () => {
     setDrawerGarantia(null);
     setObservacoes('');
+    setMotivo('');
+    setModoNegar(false);
   };
 
   const handleAprovar = async () => {
@@ -75,9 +88,13 @@ export default function LogisticaDashboardPage() {
 
   const handleNegar = async () => {
     if (!drawerGarantia) return;
+    if (!motivo.trim()) {
+      toast.error('Informe o motivo da negativa');
+      return;
+    }
     setIsProcessing(true);
     try {
-      await apiService.atualizarStatusGarantia(drawerGarantia.id, 'rejeitado', observacoes || 'Solicitação negada.');
+      await apiService.atualizarStatusGarantia(drawerGarantia.id, 'rejeitado', observacoes, motivo);
       toast.success('Solicitação negada.');
       fecharDrawer();
       loadGarantias();
@@ -123,26 +140,23 @@ export default function LogisticaDashboardPage() {
   return (
     <PrivateRoute allowedRoles={['logistica']}>
       <DashboardLayout>
-        {/* Header */}
+        {/* Header — reflete o item escolhido no menu */}
         <div className="animate-slide-up mb-8">
           <p className="text-xs text-[var(--text-muted)] font-medium mb-1">Painel de</p>
           <h1 className="text-3xl font-extrabold text-[var(--text-primary)] tracking-tight">
-            Fila de Processamento
+            {filterStatus === 'processado'
+              ? 'Garantias Aprovadas'
+              : filterStatus === 'rejeitado'
+              ? 'Garantias Negadas'
+              : 'Fila de Processamento'}
+            {!isLoading && garantias.length > 0 && (
+              <span className="text-lg font-bold text-[var(--text-muted)] ml-3">
+                {garantias.length}
+              </span>
+            )}
           </h1>
         </div>
 
-        {/* Filtros */}
-        <div className="mb-6 animate-slide-up">
-          <Tabs
-            tabs={[
-              { value: 'pendente', label: 'Pendentes', icon: <Clock size={14} className="text-amber-500" />, count: filterStatus === 'pendente' ? garantias.length : undefined },
-              { value: 'processado', label: 'Aprovadas', icon: <CheckCircle size={14} className="text-sky-500" />, count: filterStatus === 'processado' ? garantias.length : undefined },
-              { value: 'rejeitado', label: 'Negadas', icon: <ThumbsDown size={14} className="text-red-500" />, count: filterStatus === 'rejeitado' ? garantias.length : undefined },
-            ]}
-            active={filterStatus}
-            onChange={setFilterStatus}
-          />
-        </div>
 
         {/* Lista em grid 2 colunas */}
         {isLoading ? (
@@ -176,7 +190,7 @@ export default function LogisticaDashboardPage() {
                 {/* Produto / Falha */}
                 <div className="bg-[var(--bg-elevated)] rounded-xl px-4 py-3 mb-4 border border-[var(--border-subtle)] flex gap-4 items-start justify-between min-h-[86px]">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">{garantia.produto_nome}</p>
+                    <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">{resumoItens(garantia)}</p>
                     <p className="text-xs text-[var(--text-muted)] leading-relaxed line-clamp-2">
                       {garantia.descricao_falha}
                     </p>
@@ -207,11 +221,20 @@ export default function LogisticaDashboardPage() {
                   >
                     Analisar Solicitação
                   </Button>
-                ) : garantia.observacoes ? (
-                  <p className="text-xs text-[var(--text-muted)] italic leading-relaxed">
-                    &ldquo;{garantia.observacoes}&rdquo;
-                  </p>
-                ) : null}
+                ) : (
+                  <>
+                    {garantia.observacoes && (
+                      <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                        Protocolo: <span className="font-semibold text-[var(--text-secondary)]">{garantia.observacoes}</span>
+                      </p>
+                    )}
+                    {garantia.motivo_rejeicao && (
+                      <p className="text-xs text-[var(--danger)] leading-relaxed mt-1">
+                        Motivo: <span className="font-semibold">{garantia.motivo_rejeicao}</span>
+                      </p>
+                    )}
+                  </>
+                )}
               </Card>
             ))}
           </div>
@@ -262,7 +285,19 @@ export default function LogisticaDashboardPage() {
                     />
                   )}
                   <div className="min-w-0 flex-1">
-                    <InfoRow icon={<Tag size={14} />} label={drawerGarantia.produto_nome || ''} bold />
+                    <>
+                      {(drawerGarantia.itens && drawerGarantia.itens.length > 0
+                        ? drawerGarantia.itens
+                        : [{ produto_id: 'unico', nome: drawerGarantia.produto_nome || '', familia: undefined, variacao: undefined, quantidade: 1 }]
+                      ).map((item) => (
+                        <InfoRow
+                          key={item.produto_id}
+                          icon={<Tag size={14} />}
+                          label={`${item.quantidade > 1 ? item.quantidade + 'x ' : ''}${item.familia || item.nome}${item.variacao ? ' · ' + item.variacao : ''}`}
+                          bold
+                        />
+                      ))}
+                    </>
                     {drawerGarantia.produto_categoria && (
                       <InfoRow icon={<Tag size={14} />} label={drawerGarantia.produto_categoria || ''} muted />
                     )}
@@ -305,31 +340,73 @@ export default function LogisticaDashboardPage() {
                 </Section>
               )}
 
-              {/* Observações */}
-              <Section title="Observações do Analista (opcional)">
-                <textarea
-                  value={observacoes}
-                  onChange={(e) => setObservacoes(e.target.value)}
-                  placeholder="Descreva o motivo da aprovação ou negação..."
-                  rows={3}
-                  className="w-full bg-[var(--bg-input)] border border-[var(--border-medium)] rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-all duration-150 focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-muted)] resize-vertical min-h-[80px]"
-                />
-              </Section>
+              {/* Protocolo — some quando o analista opta por negar */}
+              {!modoNegar && (
+                <Section title="Número do Protocolo (opcional)">
+                  <input
+                    type="text"
+                    value={observacoes}
+                    onChange={(e) => setObservacoes(e.target.value)}
+                    placeholder="Ex: 2026-00123"
+                    className="w-full bg-[var(--bg-input)] border border-[var(--border-medium)] rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-all duration-150 focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-muted)]"
+                  />
+                </Section>
+              )}
+
+              {/* Motivo — aparece só depois de clicar em Negar */}
+              {modoNegar && (
+                <div className="animate-slide-up">
+                  <Section title="Motivo da Negativa" warning>
+                    <textarea
+                      autoFocus
+                      value={motivo}
+                      onChange={(e) => setMotivo(e.target.value)}
+                      placeholder="Ex: Produto fora do prazo de garantia"
+                      rows={3}
+                      className="w-full bg-[var(--bg-input)] border border-[var(--danger)]/40 rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-all duration-150 focus:border-[var(--danger)] focus:ring-2 focus:ring-[var(--danger-muted)] resize-vertical min-h-[76px]"
+                    />
+                    <p className="text-[11px] text-[var(--text-muted)] mt-1.5">
+                      O vendedor vê este texto na lista dele.
+                    </p>
+                  </Section>
+                </div>
+              )}
             </div>
 
             {/* Footer */}
             <div className="px-7 py-4 border-t border-[var(--border-subtle)] flex-shrink-0 space-y-2">
-              <p className="text-xs text-[var(--text-muted)] text-center">Esta ação não pode ser desfeita</p>
+              <p className="text-xs text-[var(--text-muted)] text-center">
+                {modoNegar ? 'Descreva o motivo para o vendedor' : 'Esta ação não pode ser desfeita'}
+              </p>
               <div className="flex gap-3">
-                <Button variant="danger" size="lg" icon={<ThumbsDown size={16} />}
-                  loading={isProcessing} className="flex-1" onClick={handleNegar}>
-                  Negar
-                </Button>
-                <Button variant="primary" size="lg" icon={<ThumbsUp size={16} />}
-                  loading={isProcessing} className="flex-1" onClick={handleAprovar}
-                  style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}>
-                  Aprovar
-                </Button>
+                {modoNegar ? (
+                  <>
+                    <Button variant="secondary" size="lg" className="flex-1"
+                      disabled={isProcessing}
+                      onClick={() => { setModoNegar(false); setMotivo(''); }}>
+                      Cancelar
+                    </Button>
+                    <Button variant="danger" size="lg" icon={<ThumbsDown size={16} />}
+                      loading={isProcessing} className="flex-1"
+                      disabled={!motivo.trim()}
+                      onClick={handleNegar}>
+                      Confirmar negativa
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="danger" size="lg" icon={<ThumbsDown size={16} />}
+                      loading={isProcessing} className="flex-1"
+                      onClick={() => setModoNegar(true)}>
+                      Negar
+                    </Button>
+                    <Button variant="primary" size="lg" icon={<ThumbsUp size={16} />}
+                      loading={isProcessing} className="flex-1" onClick={handleAprovar}
+                      style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}>
+                      Aprovar
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -338,6 +415,17 @@ export default function LogisticaDashboardPage() {
     </PrivateRoute>
   );
 }
+
+
+// useSearchParams exige uma fronteira de Suspense em página pré-renderizada.
+export default function LogisticaDashboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <LogisticaDashboardPageConteudo />
+    </Suspense>
+  );
+}
+
 
 function Section({ title, warning, children }: { title: string; warning?: boolean; children: React.ReactNode }) {
   return (

@@ -3,8 +3,11 @@ const router = express.Router();
 const { BlingController } = require('../controllers/blingController');
 const { verificarToken, verificarTipo } = require('../middleware/auth');
 
-// Configurar API Key (apenas direção)
-router.post('/config', verificarToken, verificarTipo(['direcao']), BlingController.configurarApiKey);
+// Fluxo OAuth2 — só a Direção inicia a conexão
+router.get('/oauth/iniciar', verificarToken, verificarTipo(['direcao']), BlingController.oauthIniciar);
+
+// O Bling chama essa aqui direto (sem token nosso — é o navegador do usuário voltando do Bling)
+router.get('/callback', BlingController.oauthCallback);
 
 // Status da integração
 router.get('/status', verificarToken, BlingController.status);

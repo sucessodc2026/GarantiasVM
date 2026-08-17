@@ -11,23 +11,9 @@ class ConfigController {
       }
 
       // Validar tipos permitidos
-      const tiposPermitidos = ['bling_api_key', 'empresa_nome', 'email_suporte'];
+      const tiposPermitidos = ['empresa_nome', 'email_suporte'];
       if (!tiposPermitidos.includes(tipo)) {
         return res.status(400).json({ erro: 'Tipo de configuração inválido' });
-      }
-
-      // Se for Bling, testar a chave
-      if (tipo === 'bling_api_key') {
-        try {
-          const BlingService = require('../services/blingService');
-          const blingTest = new BlingService(valor);
-          await blingTest.listarClientes(); // Teste simples
-        } catch (erro) {
-          return res.status(400).json({
-            erro: 'Chave Bling inválida. Verifique e tente novamente.',
-            detalhes: erro.message,
-          });
-        }
       }
 
       // Salvar ou atualizar configuração
@@ -42,7 +28,7 @@ class ConfigController {
       res.json({
         mensagem: `Configuração "${tipo}" salva com sucesso`,
         tipo,
-        valor: tipo === 'bling_api_key' ? '***' : valor, // Não retornar a chave
+        valor,
       });
     } catch (erro) {
       console.error('Erro ao salvar configuração:', erro);
@@ -66,17 +52,9 @@ class ConfigController {
 
       const config = result.rows[0];
 
-      // Não retornar valores sensíveis
-      const valor =
-        tipo === 'bling_api_key'
-          ? config.valor
-            ? '****' + config.valor.slice(-4)
-            : ''
-          : config.valor || '';
-
       res.json({
         tipo: config.tipo,
-        valor,
+        valor: config.valor || '',
         configurado: true,
         atualizado_em: config.atualizado_em,
       });
@@ -103,42 +81,6 @@ class ConfigController {
     } catch (erro) {
       console.error('Erro ao listar configurações:', erro);
       res.status(500).json({ erro: 'Erro ao listar configurações' });
-    }
-  }
-
-  // Testar chave Bling
-  static async testarBling(req, res) {
-    try {
-      const result = await pool.query(
-        'SELECT valor FROM configuracoes WHERE tipo = $1',
-        ['bling_api_key']
-      );
-
-      if (result.rows.length === 0) {
-        return res.status(400).json({
-          erro: 'Chave Bling não configurada',
-        });
-      }
-
-      const apiKey = result.rows[0].valor;
-      const BlingService = require('../services/blingService');
-      const bling = new BlingService(apiKey);
-
-      // Tentar listar clientes (teste simples)
-      const clientes = await bling.listarClientes();
-
-      res.json({
-        status: 'OK',
-        mensagem: 'Conexão com Bling estabelecida com sucesso',
-        clientes_encontrados: clientes.length,
-      });
-    } catch (erro) {
-      console.error('Erro ao testar Bling:', erro);
-      res.status(400).json({
-        status: 'ERRO',
-        mensagem: 'Erro ao conectar com Bling',
-        detalhes: erro.message,
-      });
     }
   }
 }

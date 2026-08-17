@@ -35,3 +35,8 @@ antigravity-ide/
 
 # Uploads Locais (Mídias agora no Cloudinary)
 uploads/
+.vercel
+.env*
+
+# Documento com senhas — nunca versionar
+MIGRACAO-E-BACKUP.md

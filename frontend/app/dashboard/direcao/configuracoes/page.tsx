@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { PrivateRoute } from '@/components/PrivateRoute';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card } from '@/components/ui/Card';
@@ -12,10 +13,7 @@ import { uploadService } from '@/services/uploadService';
 import { Produto } from '@/types';
 import {
   Settings,
-  Eye,
-  EyeOff,
   CheckCircle,
-  AlertCircle,
   Loader,
   Package,
   Upload,
@@ -26,47 +24,114 @@ import {
   Database,
   Download,
   FileSpreadsheet,
+  Plus,
 } from 'lucide-react';
-import { parseGoogleDriveLink } from '@/utils/drive';
 import toast from 'react-hot-toast';
 
 export default function ConfiguracoesPage() {
-  const [blingKey, setBlingKey] = useState('');
+  return (
+    <Suspense fallback={null}>
+      <ConfiguracoesPageConteudo />
+    </Suspense>
+  );
+}
+
+function ConfiguracoesPageConteudo() {
+  const searchParams = useSearchParams();
   const [empresaNome, setEmpresaNome] = useState('');
   const [emailSuporte, setEmailSuporte] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [showKey, setShowKey] = useState(false);
-  const [blingStatus, setBlingStatus] = useState<'untested' | 'testing' | 'ok' | 'error'>('untested');
+  const [blingConectado, setBlingConectado] = useState(false);
+  const [conectandoBling, setConectandoBling] = useState(false);
+  const [sincronizandoBling, setSincronizandoBling] = useState(false);
 
   // Produtos
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [isLoadingProdutos, setIsLoadingProdutos] = useState(false);
   const [uploadingProdutoId, setUploadingProdutoId] = useState<string | null>(null);
-  const [driveUrlInputs, setDriveUrlInputs] = useState<Record<string, string>>({});
-  const [savingDriveId, setSavingDriveId] = useState<string | null>(null);
   const [csvClientes, setCsvClientes] = useState('');
   const [csvProdutos, setCsvProdutos] = useState('');
   const [importingClientes, setImportingClientes] = useState(false);
   const [importingProdutos, setImportingProdutos] = useState(false);
 
-  useEffect(() => { loadConfigs(); loadProdutos(); }, []);
+  // Cadastro manual de produto/variação
+  const [expandido, setExpandido] = useState<string | null>(null);
+  const [novaVariacao, setNovaVariacao] = useState<Record<string, string>>({});
+  const [salvandoVariacao, setSalvandoVariacao] = useState<string | null>(null);
+  const [showNovoProduto, setShowNovoProduto] = useState(false);
+  const [novoNome, setNovoNome] = useState('');
+  const [novaDescricao, setNovaDescricao] = useState('');
+  const [novaCategoria, setNovaCategoria] = useState('');
+  const [salvandoNovo, setSalvandoNovo] = useState(false);
+
+  // Cadastro manual de cliente
+  const [showNovoCliente, setShowNovoCliente] = useState(false);
+  const [novoClienteNome, setNovoClienteNome] = useState('');
+  const [novoClienteCpfCnpj, setNovoClienteCpfCnpj] = useState('');
+  const [novoClienteTelefone, setNovoClienteTelefone] = useState('');
+  const [novoClienteEmail, setNovoClienteEmail] = useState('');
+  const [novoClienteCidade, setNovoClienteCidade] = useState('');
+  const [salvandoCliente, setSalvandoCliente] = useState(false);
+
+  useEffect(() => { loadConfigs(); loadProdutos(); loadBlingStatus(); }, []);
+
+  // Depois do redirect de volta do OAuth do Bling (?bling=conectado|erro)
+  useEffect(() => {
+    const bling = searchParams.get('bling');
+    if (bling === 'conectado') {
+      toast.success('Bling conectado com sucesso!');
+      loadBlingStatus();
+    } else if (bling === 'erro') {
+      toast.error('Não foi possível conectar com o Bling. Tente novamente.');
+    }
+  }, [searchParams]);
 
   const loadConfigs = async () => {
     try {
       setIsLoading(true);
-      const [blingResp, empresaResp, emailResp] = await Promise.all([
-        apiService.api.get('/configuracoes/bling_api_key'),
+      const [empresaResp, emailResp] = await Promise.all([
         apiService.api.get('/configuracoes/empresa_nome'),
         apiService.api.get('/configuracoes/email_suporte'),
       ]);
-      if (blingResp.data?.configurado) setBlingKey(blingResp.data.valor);
       if (empresaResp.data?.configurado) setEmpresaNome(empresaResp.data.valor);
       if (emailResp.data?.configurado) setEmailSuporte(emailResp.data.valor);
     } catch {
       // silent
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadBlingStatus = async () => {
+    try {
+      const r = await apiService.blingStatus();
+      setBlingConectado(r.bling === 'Conectado');
+    } catch {
+      // silent
+    }
+  };
+
+  const handleConectarBling = async () => {
+    setConectandoBling(true);
+    try {
+      const { url } = await apiService.blingOauthIniciar();
+      window.location.href = url;
+    } catch (err: any) {
+      toast.error(err?.response?.data?.erro || 'Erro ao iniciar conexão com o Bling');
+      setConectandoBling(false);
+    }
+  };
+
+  const handleSincronizarBling = async () => {
+    setSincronizandoBling(true);
+    try {
+      const r = await apiService.blingSincronizar();
+      toast.success(`Sincronizado! ${r.clientes_sincronizados} clientes`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.erro || 'Erro ao sincronizar com o Bling');
+    } finally {
+      setSincronizandoBling(false);
     }
   };
 
@@ -79,32 +144,6 @@ export default function ConfiguracoesPage() {
       toast.error('Erro ao carregar produtos');
     } finally {
       setIsLoadingProdutos(false);
-    }
-  };
-
-  const handleSaveBling = async () => {
-    if (!blingKey.trim()) { toast.error('Chave do Bling não pode estar vazia'); return; }
-    setIsSaving(true);
-    try {
-      await apiService.api.post('/configuracoes', { tipo: 'bling_api_key', valor: blingKey });
-      toast.success('Chave Bling salva!');
-      setBlingStatus('untested');
-    } catch (err: any) {
-      toast.error(err?.response?.data?.erro || 'Erro ao salvar');
-      setBlingStatus('error');
-    } finally { setIsSaving(false); }
-  };
-
-  const handleTestBling = async () => {
-    if (!blingKey.trim()) { toast.error('Configure a chave primeiro'); return; }
-    setBlingStatus('testing');
-    try {
-      const response = await apiService.api.post('/configuracoes/bling/testar', {});
-      toast.success(`Conexão OK! ${response.data.clientes_encontrados} clientes encontrados`);
-      setBlingStatus('ok');
-    } catch (err: any) {
-      toast.error(err?.response?.data?.mensagem || 'Erro ao testar conexão');
-      setBlingStatus('error');
     }
   };
 
@@ -128,6 +167,22 @@ export default function ConfiguracoesPage() {
     finally { setIsSaving(false); }
   };
 
+  // A foto é do MODELO, não do encaixe: agrupa os 109 SKUs em ~29 modelos.
+  const modelos = useMemo(() => {
+    const mapa = new Map<string, { chave: string; representante: Produto; variacoes: number; comFoto: number }>();
+    for (const p of produtos) {
+      const chave = p.familia || p.nome;
+      const atual = mapa.get(chave);
+      if (atual) {
+        atual.variacoes += 1;
+        if (p.foto_url) atual.comFoto += 1;
+      } else {
+        mapa.set(chave, { chave, representante: p, variacoes: 1, comFoto: p.foto_url ? 1 : 0 });
+      }
+    }
+    return Array.from(mapa.values());
+  }, [produtos]);
+
   const handleUploadFoto = async (produto: Produto) => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -144,8 +199,8 @@ export default function ConfiguracoesPage() {
       setUploadingProdutoId(produto.id);
       try {
         const result = await uploadService.uploadArquivo(file);
-        await apiService.atualizarFotoProduto(produto.id, result.url);
-        toast.success(`Foto de "${produto.nome}" salva!`);
+        const r = await apiService.atualizarFotoFamilia(produto.familia || produto.nome, result.url);
+        toast.success(r.mensagem);
         loadProdutos();
       } catch {
         toast.error('Erro ao enviar foto');
@@ -158,29 +213,71 @@ export default function ConfiguracoesPage() {
 
   const handleRemoverFoto = async (produto: Produto) => {
     try {
-      await apiService.removerFotoProduto(produto.id);
-      toast.success(`Foto de "${produto.nome}" removida`);
+      const r = await apiService.atualizarFotoFamilia(produto.familia || produto.nome);
+      toast.success(r.mensagem);
       loadProdutos();
     } catch {
       toast.error('Erro ao remover foto');
     }
   };
 
-  const handleSaveDriveLink = async (produto: Produto) => {
-    const raw = driveUrlInputs[produto.id]?.trim();
-    if (!raw) { toast.error('Cole o link do Google Drive primeiro'); return; }
-    const directUrl = parseGoogleDriveLink(raw);
-    if (!directUrl) { toast.error('Link do Google Drive inválido'); return; }
-    setSavingDriveId(produto.id);
+  // Nova variação (ex: chegou o encaixe H11 de um modelo que só tinha H16)
+  const handleAdicionarVariacao = async (chaveFamilia: string) => {
+    const codigo = (novaVariacao[chaveFamilia] || '').trim();
+    if (!codigo) { toast.error('Informe o código (SKU) da variação'); return; }
+    setSalvandoVariacao(chaveFamilia);
     try {
-      await apiService.atualizarFotoProduto(produto.id, directUrl);
-      toast.success(`Foto de "${produto.nome}" salva do Drive!`);
-      setDriveUrlInputs((prev) => ({ ...prev, [produto.id]: '' }));
+      await apiService.criarProduto({ nome: codigo, familia_existente: chaveFamilia });
+      toast.success(`${codigo} adicionado a ${chaveFamilia}`);
+      setNovaVariacao((prev) => ({ ...prev, [chaveFamilia]: '' }));
       loadProdutos();
-    } catch {
-      toast.error('Erro ao salvar link');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.erro || 'Erro ao cadastrar variação');
     } finally {
-      setSavingDriveId(null);
+      setSalvandoVariacao(null);
+    }
+  };
+
+  // Produto totalmente novo — sem vínculo com nenhum modelo existente
+  const handleCriarProduto = async () => {
+    if (!novoNome.trim()) { toast.error('Informe o código (SKU) do produto'); return; }
+    setSalvandoNovo(true);
+    try {
+      await apiService.criarProduto({
+        nome: novoNome.trim(),
+        descricao: novaDescricao.trim() || undefined,
+        categoria: novaCategoria.trim() || undefined,
+      });
+      toast.success('Produto cadastrado!');
+      setNovoNome(''); setNovaDescricao(''); setNovaCategoria('');
+      setShowNovoProduto(false);
+      loadProdutos();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.erro || 'Erro ao cadastrar produto');
+    } finally {
+      setSalvandoNovo(false);
+    }
+  };
+
+  const handleCriarCliente = async () => {
+    if (!novoClienteNome.trim()) { toast.error('Informe o nome do cliente'); return; }
+    setSalvandoCliente(true);
+    try {
+      await apiService.criarCliente({
+        nome: novoClienteNome.trim(),
+        cpf_cnpj: novoClienteCpfCnpj.trim() || undefined,
+        telefone: novoClienteTelefone.trim() || undefined,
+        email: novoClienteEmail.trim() || undefined,
+        cidade: novoClienteCidade.trim() || undefined,
+      });
+      toast.success('Cliente cadastrado!');
+      setNovoClienteNome(''); setNovoClienteCpfCnpj(''); setNovoClienteTelefone('');
+      setNovoClienteEmail(''); setNovoClienteCidade('');
+      setShowNovoCliente(false);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.erro || 'Erro ao cadastrar cliente');
+    } finally {
+      setSalvandoCliente(false);
     }
   };
 
@@ -245,61 +342,34 @@ export default function ConfiguracoesPage() {
             <div>
               <h2 className="text-xl font-bold text-[var(--text-primary)]">Bling ERP</h2>
               <p className="text-sm text-[var(--text-muted)] mt-0.5">
-                Integre com seu ERP para buscar clientes e produtos automaticamente
+                Conecte sua conta Bling para importar clientes e produtos automaticamente
               </p>
             </div>
-            {blingStatus === 'ok' && (
+            {blingConectado && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-[var(--success-muted)] text-[var(--success)] border border-[var(--success)]/25">
                 <CheckCircle size={13} /> Conectado
               </span>
             )}
-            {blingStatus === 'error' && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-[var(--danger-muted)] text-[var(--danger)] border border-[var(--danger)]/25">
-                <AlertCircle size={13} /> Erro
-              </span>
-            )}
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">
-                Chave de API do Bling
-              </label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <input
-                    type={showKey ? 'text' : 'password'}
-                    value={blingKey}
-                    onChange={(e) => { setBlingKey(e.target.value); setBlingStatus('untested'); }}
-                    placeholder="Cole sua chave de API do Bling aqui..."
-                    className="w-full bg-[var(--bg-input)] border border-[var(--border-medium)] rounded-xl px-4 py-2.5 pr-10 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-all duration-150 focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-muted)]"
-                  />
-                  <button
-                    onClick={() => setShowKey(!showKey)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-secondary)] cursor-pointer"
-                  >
-                    {showKey ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-                <Button onClick={handleSaveBling} loading={isSaving}>Salvar</Button>
-              </div>
-              <p className="text-xs text-[var(--text-muted)] mt-1.5">
-                Vá em Painel Bling → Usuários → [seu usuário] → Chave de API
-              </p>
-            </div>
-
-            <Button variant="secondary" className="!w-full" onClick={handleTestBling}
-              disabled={blingStatus === 'testing' || !blingKey}
-              icon={blingStatus === 'testing' ? <Loader size={14} className="animate-spin" /> : undefined}>
-              {blingStatus === 'testing' ? 'Testando conexão...' : 'Testar Conexão'}
-            </Button>
-
-            <div className="p-4 rounded-xl bg-[var(--accent-muted)] border border-[var(--accent)]/20">
-              <p className="text-sm text-[var(--accent)]">
-                <strong>Como obter a chave:</strong> Acesse seu painel do Bling, vá em
-                Configurações → Usuários, clique no seu usuário e copie a Chave de API.
-              </p>
-            </div>
+          <div className="space-y-3">
+            {!blingConectado ? (
+              <Button className="!w-full" onClick={handleConectarBling} loading={conectandoBling}
+                icon={<Link size={14} />}>
+                Conectar com Bling
+              </Button>
+            ) : (
+              <Button variant="secondary" className="!w-full" onClick={handleSincronizarBling}
+                loading={sincronizandoBling}
+                icon={sincronizandoBling ? <Loader size={14} className="animate-spin" /> : undefined}>
+                {sincronizandoBling ? 'Sincronizando...' : 'Sincronizar agora'}
+              </Button>
+            )}
+            <p className="text-xs text-[var(--text-muted)]">
+              {blingConectado
+                ? 'A conexão fica ativa; use "Sincronizar agora" para trazer clientes e produtos novos do Bling.'
+                : 'Você será redirecionado para o Bling para autorizar o acesso.'}
+            </p>
           </div>
         </Card>
 
@@ -338,6 +408,87 @@ export default function ConfiguracoesPage() {
               </div>
             </div>
           </div>
+        </Card>
+
+        {/* ===== Novo Cliente ===== */}
+        <Card className="mb-5 animate-slide-up">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-[var(--text-primary)]">Cadastrar Cliente</h2>
+              <p className="text-sm text-[var(--text-muted)] mt-0.5">
+                Para casos avulsos — clientes em volume, use a importação por CSV abaixo
+              </p>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Plus size={14} />}
+              onClick={() => setShowNovoCliente((v) => !v)}
+            >
+              Novo Cliente
+            </Button>
+          </div>
+
+          {showNovoCliente && (
+            <div className="p-4 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)] space-y-3 animate-slide-up">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] text-[var(--text-muted)] mb-1">Nome *</label>
+                  <input
+                    type="text"
+                    value={novoClienteNome}
+                    onChange={(e) => setNovoClienteNome(e.target.value)}
+                    placeholder="Ex: Daniel Marcos dos Santos"
+                    className="w-full bg-[var(--bg-input)] border border-[var(--border-medium)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-[var(--text-muted)] mb-1">CPF/CNPJ</label>
+                  <input
+                    type="text"
+                    value={novoClienteCpfCnpj}
+                    onChange={(e) => setNovoClienteCpfCnpj(e.target.value)}
+                    placeholder="Ex: 43.926.174/0001-92"
+                    className="w-full bg-[var(--bg-input)] border border-[var(--border-medium)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-[var(--text-muted)] mb-1">Telefone</label>
+                  <input
+                    type="text"
+                    value={novoClienteTelefone}
+                    onChange={(e) => setNovoClienteTelefone(e.target.value)}
+                    placeholder="Ex: 11999999999"
+                    className="w-full bg-[var(--bg-input)] border border-[var(--border-medium)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-[var(--text-muted)] mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={novoClienteEmail}
+                    onChange={(e) => setNovoClienteEmail(e.target.value)}
+                    placeholder="cliente@email.com"
+                    className="w-full bg-[var(--bg-input)] border border-[var(--border-medium)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent)]"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[11px] text-[var(--text-muted)] mb-1">Cidade</label>
+                <input
+                  type="text"
+                  value={novoClienteCidade}
+                  onChange={(e) => setNovoClienteCidade(e.target.value)}
+                  placeholder="Ex: Cuiabá"
+                  className="w-full bg-[var(--bg-input)] border border-[var(--border-medium)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setShowNovoCliente(false)}>Cancelar</Button>
+                <Button size="sm" loading={salvandoCliente} onClick={handleCriarCliente}>Cadastrar</Button>
+              </div>
+            </div>
+          )}
         </Card>
 
         {/* ===== Importar Dados ===== */}
@@ -427,41 +578,78 @@ export default function ConfiguracoesPage() {
                 Adicione fotos dos SKUs para que vendedores e logística identifiquem visualmente cada produto
               </p>
             </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Plus size={14} />}
+              onClick={() => setShowNovoProduto((v) => !v)}
+            >
+              Novo Produto
+            </Button>
           </div>
 
-          {/* Acesso rápido ao Drive */}
-          <div className="flex gap-3 mb-6">
-            <a
-              href="https://drive.google.com/drive/folders/1jF97SinsgYPPfwi7jt9QdVuD_R_8ps66"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)] text-sm text-[var(--text-primary)] hover:border-[var(--border-medium)] transition-colors"
-            >
-              <ExternalLink size={15} className="text-[var(--accent)]" />
-              Abrir pasta de Fotos
-            </a>
-            <a
-              href="https://drive.google.com/drive/folders/19znsWmJOpiARYcsRWQ8InNCu_MiL7HEV"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)] text-sm text-[var(--text-primary)] hover:border-[var(--border-medium)] transition-colors"
-            >
-              <ExternalLink size={15} className="text-[var(--brand-yellow)]" />
-              Abrir pasta de Vídeos
-            </a>
-          </div>
+          {/* Cadastro de produto sem vínculo com nenhum modelo existente.
+              Para adicionar variação de um modelo já cadastrado, use o "+"
+              dentro da própria linha do modelo, mais abaixo. */}
+          {showNovoProduto && (
+            <div className="mb-5 p-4 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)] space-y-3 animate-slide-up">
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+                Cadastrar produto novo
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] text-[var(--text-muted)] mb-1">Código (SKU) *</label>
+                  <input
+                    type="text"
+                    value={novoNome}
+                    onChange={(e) => setNovoNome(e.target.value)}
+                    placeholder="Ex: LANTLED30"
+                    className="w-full bg-[var(--bg-input)] border border-[var(--border-medium)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-[var(--text-muted)] mb-1">Categoria</label>
+                  <input
+                    type="text"
+                    value={novaCategoria}
+                    onChange={(e) => setNovaCategoria(e.target.value)}
+                    placeholder="Ex: Lanternas"
+                    className="w-full bg-[var(--bg-input)] border border-[var(--border-medium)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent)]"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[11px] text-[var(--text-muted)] mb-1">Descrição</label>
+                <input
+                  type="text"
+                  value={novaDescricao}
+                  onChange={(e) => setNovaDescricao(e.target.value)}
+                  placeholder="Ex: LANTERNA LED 30CM - 6000K"
+                  className="w-full bg-[var(--bg-input)] border border-[var(--border-medium)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent)]"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setShowNovoProduto(false)}>Cancelar</Button>
+                <Button size="sm" loading={salvandoNovo} onClick={handleCriarProduto}>Cadastrar</Button>
+              </div>
+            </div>
+          )}
 
           {isLoadingProdutos ? (
             <div className="flex items-center justify-center py-12">
               <Spinner size={24} />
             </div>
-          ) : produtos.length === 0 ? (
+          ) : modelos.length === 0 ? (
             <p className="text-sm text-[var(--text-muted)] text-center py-8">
               Nenhum produto cadastrado
             </p>
           ) : (
             <div className="space-y-2">
-              {produtos.map((produto) => (
+              {modelos.map(({ representante: produto, variacoes }) => {
+                const chave = produto.familia || produto.nome;
+                const aberto = expandido === chave;
+                const skusDoModelo = produtos.filter((p) => (p.familia || p.nome) === chave);
+                return (
                 <div
                   key={produto.id}
                   className="flex flex-col gap-3 px-5 py-3.5 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)]"
@@ -481,14 +669,23 @@ export default function ConfiguracoesPage() {
                       )}
                     </div>
 
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-[var(--text-primary)] truncate">{produto.nome}</p>
-                      <p className="text-xs text-[var(--text-muted)]">
-                        {produto.categoria}
-                        {produto.total_defeitos > 0 && ` · ${produto.total_defeitos} defeitos registrados`}
+                    {/* Info — clicar expande e mostra os SKUs/variações */}
+                    <button
+                      type="button"
+                      onClick={() => setExpandido(aberto ? null : chave)}
+                      className="flex-1 min-w-0 text-left cursor-pointer"
+                    >
+                      <p className="text-sm font-bold text-[var(--text-primary)] truncate">
+                        {produto.familia || produto.nome}
                       </p>
-                    </div>
+                      <p className="text-xs text-[var(--text-muted)]">
+                        {variacoes > 1
+                          ? `${variacoes} variações · a foto vale para todas`
+                          : produto.nome}
+                        {' · '}
+                        <span className="text-[var(--accent)]">{aberto ? 'ocultar' : 'ver variações'}</span>
+                      </p>
+                    </button>
 
                     {/* Status */}
                     {produto.foto_url ? (
@@ -526,32 +723,43 @@ export default function ConfiguracoesPage() {
                     </div>
                   </div>
 
-                  {/* Linha inferior — colar link do Drive */}
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Link size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
-                      <input
-                        type="text"
-                        value={driveUrlInputs[produto.id] || ''}
-                        onChange={(e) =>
-                          setDriveUrlInputs((prev) => ({ ...prev, [produto.id]: e.target.value }))
-                        }
-                        placeholder="Colar link do Google Drive..."
-                        className="w-full bg-[var(--bg-input)] border border-[var(--border-subtle)] rounded-lg pl-9 pr-3 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-all focus:border-[var(--accent)]"
-                      />
+                  {/* Variações do modelo + cadastro de uma nova */}
+                  {aberto && (
+                    <div className="pl-[72px] animate-slide-up">
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {skusDoModelo.map((sku) => (
+                          <span
+                            key={sku.id}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[var(--bg-input)] border border-[var(--border-medium)] text-[var(--text-secondary)]"
+                          >
+                            {sku.variacao || sku.nome}
+                            <span className="text-[var(--text-muted)] font-normal">{sku.nome}</span>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={novaVariacao[chave] || ''}
+                          onChange={(e) => setNovaVariacao((prev) => ({ ...prev, [chave]: e.target.value }))}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAdicionarVariacao(chave)}
+                          placeholder="Código da variação nova (ex: COREH27)"
+                          className="flex-1 bg-[var(--bg-input)] border border-[var(--border-medium)] rounded-lg px-3 py-1.5 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none focus:border-[var(--accent)]"
+                        />
+                        <Button
+                          size="sm"
+                          icon={<Plus size={13} />}
+                          loading={salvandoVariacao === chave}
+                          onClick={() => handleAdicionarVariacao(chave)}
+                        >
+                          Adicionar
+                        </Button>
+                      </div>
                     </div>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      icon={savingDriveId === produto.id ? <Loader size={13} className="animate-spin" /> : <CheckCircle size={13} />}
-                      onClick={() => handleSaveDriveLink(produto)}
-                      disabled={savingDriveId === produto.id || !driveUrlInputs[produto.id]?.trim()}
-                    >
-                      {savingDriveId === produto.id ? 'Salvando...' : 'Aplicar'}
-                    </Button>
-                  </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </Card>
@@ -559,7 +767,7 @@ export default function ConfiguracoesPage() {
         {/* Status */}
         <div className="grid grid-cols-3 gap-3 animate-slide-up">
           {[
-            { label: 'Bling ERP', value: blingStatus === 'ok' ? 'Conectado' : blingStatus === 'error' ? 'Erro' : 'Não testado', ok: blingStatus === 'ok' },
+            { label: 'Bling ERP', value: blingConectado ? 'Conectado' : 'Não conectado', ok: blingConectado },
             { label: 'Empresa', value: empresaNome || 'Não configurada', ok: !!empresaNome },
             { label: 'Email Suporte', value: emailSuporte || 'Não configurado', ok: !!emailSuporte },
           ].map((s) => (

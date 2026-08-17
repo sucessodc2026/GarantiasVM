@@ -32,24 +32,24 @@ export default function RootLayout({
             position="top-right"
             toastOptions={{
               style: {
-                background: '#FFFFFF',
-                color: '#2A3547',
-                border: '1px solid #EAEFF4',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-medium)',
                 borderRadius: '7px',
                 fontSize: '14px',
                 fontFamily: 'var(--font-plus-jakarta-sans), sans-serif',
-                boxShadow: '0px 4px 18px rgba(47, 43, 61, 0.1)',
+                boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.45)',
               },
               success: {
                 iconTheme: {
-                  primary: '#23AF15',
-                  secondary: '#FFFFFF',
+                  primary: 'var(--success)',
+                  secondary: 'var(--bg-elevated)',
                 },
               },
               error: {
                 iconTheme: {
-                  primary: '#EF4444',
-                  secondary: '#FFFFFF',
+                  primary: 'var(--danger)',
+                  secondary: 'var(--bg-elevated)',
                 },
               },
             }}

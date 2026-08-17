@@ -15,7 +15,4 @@ router.get('/:tipo', verificarToken, apenasDirector, ConfigController.obterConfi
 // Salvar configuração
 router.post('/', verificarToken, apenasDirector, ConfigController.salvarConfig);
 
-// Testar conexão Bling
-router.post('/bling/testar', verificarToken, apenasDirector, ConfigController.testarBling);
-
 module.exports = router;

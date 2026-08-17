@@ -15,7 +15,6 @@ import { ListSkeleton } from '@/components/ui/Skeleton';
 import { apiService } from '@/services/api';
 import { uploadService } from '@/services/uploadService';
 import { Garantia } from '@/types';
-import { parseGoogleDriveLink } from '@/utils/drive';
 import {
   Plus,
   ShieldAlert,
@@ -29,6 +28,14 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+const resumoItens = (g: Garantia) => {
+  const n = g.itens?.length || 0;
+  if (n === 0) return g.produto_nome || '';
+  if (n === 1) return `${g.itens![0].quantidade > 1 ? g.itens![0].quantidade + 'x ' : ''}${g.itens![0].nome}`;
+  const pecas = g.itens!.reduce((t, i) => t + i.quantidade, 0);
+  return `${n} produtos · ${pecas} peças`;
+};
+
 export default function VendedorDashboardPage() {
   const { usuario } = useAuth();
   const [garantias, setGarantias] = useState<Garantia[]>([]);
@@ -39,12 +46,14 @@ export default function VendedorDashboardPage() {
     produto_id: '',
     descricao_falha: '',
   });
+  // Uma garantia pode ter vários produtos.
+  type ItemGarantia = { produto_id: string; nome: string; familia?: string; variacao?: string; foto_url?: string; quantidade: number };
+  const [itens, setItens] = useState<ItemGarantia[]>([]);
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [fotoPreview, setFotoPreview] = useState<string>('');
   const [videoPreview, setVideoPreview] = useState<string>('');
-  const [videoUrlInput, setVideoUrlInput] = useState('');
 
   // Autocomplete States
   const [clienteBusca, setClienteBusca] = useState('');
@@ -52,8 +61,9 @@ export default function VendedorDashboardPage() {
   const [showClientesDropdown, setShowClientesDropdown] = useState(false);
 
   const [produtoBusca, setProdutoBusca] = useState('');
-  const [sugestoesProdutos, setSugestoesProdutos] = useState<{ id: string; nome: string; categoria?: string; foto_url?: string }[]>([]);
+  const [sugestoesProdutos, setSugestoesProdutos] = useState<{ id: string; nome: string; categoria?: string; foto_url?: string; familia?: string; variacao?: string; descricao?: string }[]>([]);
   const [showProdutosDropdown, setShowProdutosDropdown] = useState(false);
+  const [familiaAberta, setFamiliaAberta] = useState<string | null>(null);
 
   useEffect(() => { loadGarantias(); }, []);
 
@@ -75,6 +85,7 @@ export default function VendedorDashboardPage() {
 
   const buscarProdutos = async (busca: string) => {
     setProdutoBusca(busca);
+    setFamiliaAberta(null);
     if (busca.trim().length < 1) {
       setSugestoesProdutos([]);
       setShowProdutosDropdown(false);
@@ -89,7 +100,48 @@ export default function VendedorDashboardPage() {
     }
   };
 
+  // Um modelo (ex: CORE MINI 4.200 LUMENS) pode ter várias variações de
+  // encaixe — agrupa a lista plana da API para mostrar 1 linha por modelo
+  // e só pedir o encaixe quando existir mais de um.
+  const familiasAgrupadas = (() => {
+    const mapa = new Map<string, { chave: string; nome: string; foto_url?: string; skus: typeof sugestoesProdutos }>();
+    for (const p of sugestoesProdutos) {
+      const chave = p.familia || p.descricao || p.nome;
+      const grupo = mapa.get(chave);
+      if (grupo) {
+        grupo.skus.push(p);
+        if (!grupo.foto_url && p.foto_url) grupo.foto_url = p.foto_url;
+      } else {
+        mapa.set(chave, { chave, nome: chave, foto_url: p.foto_url, skus: [p] });
+      }
+    }
+    return Array.from(mapa.values());
+  })();
 
+
+
+  const adicionarItem = (p: { id: string; nome: string; familia?: string; variacao?: string; foto_url?: string; descricao?: string }) => {
+    setItens((atual) => {
+      const ja = atual.find((i) => i.produto_id === p.id);
+      if (ja) {
+        toast.success('Quantidade aumentada');
+        return atual.map((i) => (i.produto_id === p.id ? { ...i, quantidade: i.quantidade + 1 } : i));
+      }
+      return [...atual, { produto_id: p.id, nome: p.nome, familia: p.familia || p.descricao, variacao: p.variacao, foto_url: p.foto_url, quantidade: 1 }];
+    });
+    setProdutoBusca('');
+    setSugestoesProdutos([]);
+    setShowProdutosDropdown(false);
+    setFamiliaAberta(null);
+  };
+
+  const mudarQuantidade = (produto_id: string, delta: number) =>
+    setItens((atual) =>
+      atual.map((i) => (i.produto_id === produto_id ? { ...i, quantidade: Math.max(1, i.quantidade + delta) } : i))
+    );
+
+  const removerItem = (produto_id: string) =>
+    setItens((atual) => atual.filter((i) => i.produto_id !== produto_id));
 
   const loadGarantias = async () => {
     try {
@@ -122,8 +174,12 @@ export default function VendedorDashboardPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.cliente_id || !formData.produto_id || !formData.descricao_falha) {
+    if (!formData.cliente_id || !formData.descricao_falha) {
       toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+    if (itens.length === 0) {
+      toast.error('Adicione ao menos um produto');
       return;
     }
     setIsUploading(true);
@@ -134,24 +190,35 @@ export default function VendedorDashboardPage() {
         const up = await uploadService.uploadArquivo(fotoFile);
         fotoUrl = up.url;
       }
-      if (videoUrlInput.trim()) {
-        const directUrl = parseGoogleDriveLink(videoUrlInput.trim());
-        if (directUrl) videoUrl = directUrl;
-      }
       if (videoFile) {
         const up = await uploadService.uploadArquivo(videoFile);
         videoUrl = up.url || videoUrl;
       }
-      await apiService.criarGarantia({ ...formData, foto_url: fotoUrl, video_url: videoUrl });
+      await apiService.criarGarantia({
+        cliente_id: formData.cliente_id,
+        descricao_falha: formData.descricao_falha,
+        itens: itens.map((i) => ({ produto_id: i.produto_id, quantidade: i.quantidade })),
+        foto_url: fotoUrl,
+        video_url: videoUrl,
+      });
       toast.success('Garantia criada com sucesso!');
       setFormData({ cliente_id: '', produto_id: '', descricao_falha: '' });
+      setItens([]);
       setFotoFile(null); setVideoFile(null);
-      setFotoPreview(''); setVideoPreview(''); setVideoUrlInput('');
+      setFotoPreview(''); setVideoPreview('');
       setClienteBusca(''); setProdutoBusca('');
       setActiveTab('lista');
       loadGarantias();
-    } catch {
-      toast.error('Erro ao criar garantia');
+    } catch (err: any) {
+      // Mostrar a causa real: antes, um upload rejeitado pelo servidor
+      // aparecia como "Erro ao criar garantia" e escondia o motivo.
+      const status = err?.response?.status;
+      const msg =
+        status === 413
+          ? 'Arquivo grande demais para o servidor'
+          : err?.response?.data?.erro || err?.message || 'Erro ao criar garantia';
+      toast.error(msg);
+      console.error('Falha ao criar garantia:', err?.response?.data || err);
     } finally {
       setIsUploading(false);
     }
@@ -241,7 +308,7 @@ export default function VendedorDashboardPage() {
                           {statusBadge(garantia.status)}
                         </div>
                         <p className="text-sm text-[var(--text-secondary)] mb-2">
-                          {garantia.produto_nome}
+                          {resumoItens(garantia)}
                           {garantia.produto_categoria && (
                             <span className="text-[var(--text-muted)] ml-1.5">• {garantia.produto_categoria}</span>
                           )}
@@ -272,7 +339,12 @@ export default function VendedorDashboardPage() {
                         )}
                         {garantia.observacoes && (
                           <span className="text-xs text-[var(--info)] font-medium flex items-center gap-1">
-                            <FileText size={12} /> Obs: {garantia.observacoes}
+                            <FileText size={12} /> Protocolo: {garantia.observacoes}
+                          </span>
+                        )}
+                        {garantia.motivo_rejeicao && (
+                          <span className="text-xs text-[var(--danger)] font-medium flex items-center gap-1">
+                            <FileText size={12} /> Motivo: {garantia.motivo_rejeicao}
                           </span>
                         )}
                       </div>
@@ -364,7 +436,7 @@ export default function VendedorDashboardPage() {
                 {/* Autocomplete Produto */}
                 <div style={{ position: 'relative' }}>
                   <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">
-                    Produto
+                    Produtos
                   </label>
                   <input
                     type="text"
@@ -376,73 +448,191 @@ export default function VendedorDashboardPage() {
                     onFocus={() => {
                       if (produtoBusca.length > 0) setShowProdutosDropdown(true);
                     }}
-                    placeholder="Busque pelo nome ou categoria..."
-                    required
+                    placeholder="Busque e clique para adicionar..."
                     className="w-full bg-[var(--bg-input)] border border-[var(--border-medium)] rounded-xl px-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-all duration-150 focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-muted)]"
                   />
-                  {showProdutosDropdown && sugestoesProdutos.length > 0 && (
-                    <div 
-                      style={{ 
-                        position: 'absolute', 
-                        top: '100%', 
-                        left: 0, 
-                        right: 0, 
-                        zIndex: 50, 
-                        marginTop: '4px', 
-                        maxHeight: '200px', 
-                        overflowY: 'auto', 
-                        background: 'var(--bg-card)', 
-                        border: '1px solid var(--border-medium)', 
+                  {showProdutosDropdown && familiasAgrupadas.length > 0 && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        zIndex: 50,
+                        marginTop: '4px',
+                        maxHeight: '260px',
+                        overflowY: 'auto',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border-medium)',
                         borderRadius: '12px',
                         boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
                       }}
                     >
-                      {sugestoesProdutos.map((p) => (
-                        <div
-                          key={p.id}
-                          onClick={() => {
-                            setFormData({ ...formData, produto_id: p.id });
-                            setProdutoBusca(p.nome);
-                            setShowProdutosDropdown(false);
-                          }}
-                          style={{
-                            padding: '8px 12px',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            color: 'var(--text-primary)',
-                            borderBottom: '1px solid var(--border-subtle)',
-                            transition: 'background 0.1s',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px'
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-elevated)')}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          {/* Miniatura da Imagem */}
-                          <div style={{ width: '32px', height: '32px', borderRadius: '6px', overflow: 'hidden', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border-subtle)' }}>
-                            {p.foto_url ? (
-                              <img src={p.foto_url} alt={p.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                              <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold' }}>
-                                {p.nome.substring(0, 2).toUpperCase()}
+                      {(() => {
+                        const grupo = familiasAgrupadas.find((g) => g.chave === familiaAberta);
+
+                        // Passo 2: modelo tem mais de um encaixe — escolher qual.
+                        if (grupo) {
+                          return (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setFamiliaAberta(null)}
+                                style={{
+                                  width: '100%', padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '6px',
+                                  fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)',
+                                  borderBottom: '1px solid var(--border-subtle)', background: 'transparent',
+                                  border: 'none', borderBottomWidth: '1px', borderBottomStyle: 'solid', borderBottomColor: 'var(--border-subtle)',
+                                  cursor: 'pointer', textAlign: 'left',
+                                }}
+                              >
+                                <ArrowLeft size={13} /> {grupo.nome}
+                              </button>
+                              <div style={{ padding: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                {grupo.skus.map((sku) => (
+                                  <button
+                                    type="button"
+                                    key={sku.id}
+                                    onClick={() => adicionarItem(sku)}
+                                    style={{
+                                      padding: '7px 14px',
+                                      borderRadius: '10px',
+                                      fontSize: '13px',
+                                      fontWeight: 700,
+                                      color: 'var(--accent)',
+                                      background: 'var(--accent-muted)',
+                                      border: '1px solid var(--accent)',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    {sku.variacao || sku.nome}
+                                  </button>
+                                ))}
+                              </div>
+                            </>
+                          );
+                        }
+
+                        // Passo 1: um modelo por linha, não um encaixe por linha.
+                        return familiasAgrupadas.map((f) => (
+                          <div
+                            key={f.chave}
+                            onClick={() => (f.skus.length === 1 ? adicionarItem(f.skus[0]) : setFamiliaAberta(f.chave))}
+                            style={{
+                              padding: '8px 12px',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              color: 'var(--text-primary)',
+                              borderBottom: '1px solid var(--border-subtle)',
+                              transition: 'background 0.1s',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '10px'
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-elevated)')}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                          >
+                            <div style={{ width: '32px', height: '32px', borderRadius: '6px', overflow: 'hidden', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border-subtle)' }}>
+                              {f.foto_url ? (
+                                <img src={f.foto_url} alt={f.nome} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : (
+                                <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'bold' }}>
+                                  {f.nome.substring(0, 2).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <p style={{ fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {f.nome}
+                              </p>
+                              {f.skus.length === 1 && (
+                                <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>{f.skus[0].nome}</p>
+                              )}
+                            </div>
+
+                            {f.skus.length > 1 && (
+                              <span style={{
+                                flexShrink: 0,
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                padding: '2px 8px',
+                                borderRadius: '999px',
+                                background: 'var(--bg-elevated)',
+                                color: 'var(--text-secondary)',
+                                border: '1px solid var(--border-medium)',
+                              }}>
+                                {f.skus.length} variações
                               </span>
                             )}
                           </div>
-                          
-                          {/* Textos */}
-                          <div style={{ minWidth: 0, flex: 1 }}>
-                            <p style={{ fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nome}</p>
-                            {p.categoria && <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>Cat: {p.categoria}</p>}
+                        ));
+                      })()}
+                    </div>
+                  )}
+                  {/* Produtos adicionados */}
+                  {itens.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {itens.map((item) => (
+                        <div
+                          key={item.produto_id}
+                          className="flex items-center gap-3 px-3 py-2 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)]"
+                        >
+                          <div className="w-9 h-9 rounded-lg overflow-hidden bg-[var(--bg-input)] border border-[var(--border-subtle)] flex items-center justify-center flex-shrink-0">
+                            {item.foto_url ? (
+                              <img src={item.foto_url} alt={item.nome} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-[10px] font-bold text-[var(--text-muted)]">
+                                {item.nome.substring(0, 2).toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
+                              {item.familia || item.nome}
+                            </p>
+                            <p className="text-[11px] text-[var(--text-muted)]">
+                              {item.nome}{item.variacao ? ` · ${item.variacao}` : ''}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => mudarQuantidade(item.produto_id, -1)}
+                              disabled={item.quantidade <= 1}
+                              className="w-7 h-7 rounded-lg border border-[var(--border-medium)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                            >
+                              −
+                            </button>
+                            <span className="w-7 text-center text-sm font-bold text-[var(--text-primary)] tabular-nums">
+                              {item.quantidade}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => mudarQuantidade(item.produto_id, 1)}
+                              className="w-7 h-7 rounded-lg border border-[var(--border-medium)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] cursor-pointer"
+                            >
+                              +
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removerItem(item.produto_id)}
+                              className="w-7 h-7 rounded-lg text-[var(--danger)] hover:bg-[var(--danger-muted)] cursor-pointer ml-1"
+                              title="Remover"
+                            >
+                              ×
+                            </button>
                           </div>
                         </div>
                       ))}
+                      <p className="text-[11px] text-[var(--text-muted)] text-right">
+                        {itens.length} {itens.length === 1 ? 'produto' : 'produtos'} ·{' '}
+                        {itens.reduce((t, i) => t + i.quantidade, 0)}{' '}
+                        {itens.reduce((t, i) => t + i.quantidade, 0) === 1 ? 'peça' : 'peças'}
+                      </p>
                     </div>
-                  )}
-                  {formData.produto_id && (
-                    <p style={{ fontSize: '11px', color: 'var(--success)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
-                      ✓ Produto selecionado
-                    </p>
                   )}
                 </div>
                 <div>
@@ -477,28 +667,6 @@ export default function VendedorDashboardPage() {
                     onRemove={() => { setVideoFile(null); setVideoPreview(''); }}
                   />
                 </div>
-
-                {/* Link do Google Drive para vídeo */}
-                {!videoFile && (
-                  <div>
-                    <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">
-                      Ou cole um link do Google Drive
-                    </label>
-                    <div className="relative">
-                      <Link size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
-                      <input
-                        type="text"
-                        value={videoUrlInput}
-                        onChange={(e) => setVideoUrlInput(e.target.value)}
-                        placeholder="https://drive.google.com/file/d/..."
-                        className="w-full bg-[var(--bg-input)] border border-[var(--border-medium)] rounded-xl pl-9 pr-4 py-2.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-all duration-150 focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-muted)]"
-                      />
-                    </div>
-                    <p className="text-xs text-[var(--text-muted)] mt-1">
-                      Cole o link de compartilhamento de qualquer arquivo do Google Drive
-                    </p>
-                  </div>
-                )}
 
                 <Button type="submit" loading={isUploading} className="w-full">
                   {isUploading ? 'Enviando arquivos...' : 'Criar Solicitação'}

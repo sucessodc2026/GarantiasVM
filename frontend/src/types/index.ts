@@ -22,15 +22,25 @@ export interface Garantia {
   cliente_telefone?: string;
   vendedor_id: string;
   vendedor_nome?: string;
-  produto_id: string;
+  produto_id?: string;
   produto_nome?: string;
   produto_categoria?: string;
   produto_foto_url?: string;
+  // Uma garantia pode conter vários produtos.
+  itens?: {
+    produto_id: string;
+    nome: string;
+    familia?: string;
+    variacao?: string;
+    foto_url?: string;
+    quantidade: number;
+  }[];
   descricao_falha: string;
   foto_url?: string;
   video_url?: string;
   status: StatusGarantia;
   observacoes?: string;
+  motivo_rejeicao?: string;
   criado_em: string;
   atualizado_em: string;
   processado_em?: string;
@@ -53,6 +63,8 @@ export interface Produto {
   nome: string;
   descricao?: string;
   categoria: string;
+  familia?: string;
+  variacao?: string;
   foto_url?: string;
   total_defeitos: number;
   em_alerta: boolean;

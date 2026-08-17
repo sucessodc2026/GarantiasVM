@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   TrendingUp,
@@ -8,16 +8,22 @@ import {
   Settings,
   PackageCheck,
   ShieldCheck,
+  CheckCircle,
+  ThumbsDown,
+  Search,
 } from 'lucide-react';
 
 const navConfig: Record<string, { label: string; href: string; icon: React.ReactNode }[]> = {
   direcao: [
     { label: 'Dashboard', href: '/dashboard/direcao', icon: <TrendingUp size={18} /> },
+    { label: 'Clientes', href: '/dashboard/direcao/clientes', icon: <Search size={18} /> },
     { label: 'Usuários', href: '/dashboard/direcao/usuarios', icon: <Users size={18} /> },
     { label: 'Configurações', href: '/dashboard/direcao/configuracoes', icon: <Settings size={18} /> },
   ],
   logistica: [
-    { label: 'Fila de Processo', href: '/dashboard/logistica', icon: <PackageCheck size={18} /> },
+    { label: 'Fila de Processo', href: '/dashboard/logistica?status=pendente', icon: <PackageCheck size={18} /> },
+    { label: 'Aprovadas', href: '/dashboard/logistica?status=processado', icon: <CheckCircle size={18} /> },
+    { label: 'Negadas', href: '/dashboard/logistica?status=rejeitado', icon: <ThumbsDown size={18} /> },
   ],
   vendedor: [
     { label: 'Minhas Garantias', href: '/dashboard/vendedor', icon: <ShieldCheck size={18} /> },
@@ -25,9 +31,9 @@ const navConfig: Record<string, { label: string; href: string; icon: React.React
 };
 
 const roleColors: Record<string, string> = {
-  vendedor: '#38BDF8',
-  logistica: '#E7C438',
-  direcao: '#D5194A',
+  vendedor: '#49BEFF',
+  logistica: '#FFCB05',
+  direcao: '#F2547C',
 };
 
 const roleLabels: Record<string, string> = {
@@ -40,6 +46,7 @@ export function Sidebar() {
   const { usuario } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   if (!usuario) return null;
 
@@ -47,7 +54,7 @@ export function Sidebar() {
   const roleColor = roleColors[usuario.tipo_usuario] || 'var(--accent)';
 
   return (
-    <aside className="w-[220px] flex-shrink-0 bg-[var(--bg-card)] border-r border-[var(--border-subtle)] min-h-[calc(100vh-64px)] sticky top-16 self-start flex flex-col max-md:hidden">
+    <aside className="w-[220px] flex-shrink-0 bg-[var(--bg-card)] border-r border-[var(--border-subtle)] min-h-[calc(100vh-80px)] sticky top-20 self-start flex flex-col max-md:hidden">
       {/* Perfil compacto */}
       <div className="px-4 pt-5 pb-3 border-b border-[var(--border-subtle)]">
         <div className="flex items-center gap-3">
@@ -73,18 +80,27 @@ export function Sidebar() {
       {/* Navegação */}
       <nav className="flex-1 px-3 py-3 space-y-0.5">
         {items.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+          // Os itens da logística compartilham o caminho e mudam só o ?status=
+          const [caminho, query] = item.href.split('?');
+          const statusItem = query ? new URLSearchParams(query).get('status') : null;
+          const statusAtual = searchParams.get('status') || 'pendente';
+          const isActive = statusItem
+            ? pathname === caminho && statusAtual === statusItem
+            : pathname === caminho || pathname.startsWith(caminho + '/');
           return (
             <button
               key={item.href}
               onClick={() => router.push(item.href)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer text-left ${
+              className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 cursor-pointer text-left ${
                 isActive
-                  ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
+                  ? 'bg-[var(--accent-muted)] text-[var(--accent)] font-semibold'
+                  : 'text-[var(--text-secondary)] font-medium hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]'
               }`}
             >
-              <span className="flex-shrink-0 opacity-70">{item.icon}</span>
+              {isActive && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[3px] rounded-r-full bg-[var(--accent)]" />
+              )}
+              <span className={`flex-shrink-0 ${isActive ? '' : 'opacity-60'}`}>{item.icon}</span>
               <span>{item.label}</span>
             </button>
           );

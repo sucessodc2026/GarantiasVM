@@ -39,11 +39,11 @@ export function Navbar() {
   };
 
   return (
-    <header className="h-16 sticky top-0 z-50 bg-[var(--bg-base)]/85 backdrop-blur-xl border-b border-[var(--border-subtle)]">
+    <header className="h-20 sticky top-0 z-50 bg-[var(--bg-base)]/85 backdrop-blur-xl border-b border-[var(--border-subtle)]">
       <div className="h-full max-w-full px-6 flex items-center justify-between gap-4">
         {/* Logo */}
-        <div className="flex-shrink-0">
-          <img src="/logo.png" alt="GarantiaHub" className="h-20 w-auto" />
+        <div className="flex-shrink-0 flex items-center">
+          <img src="/logo.png" alt="Garantias VM" className="h-16 w-auto" />
         </div>
 
         <div className="flex-1" />

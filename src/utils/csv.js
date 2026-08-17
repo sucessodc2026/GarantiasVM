@@ -1,3 +1,20 @@
+// Nomes de coluna que reconhecemos — usados para saber se a 1a linha é
+// cabeçalho ou já é dado (planilha colada costuma vir sem cabeçalho).
+const COLUNAS_CONHECIDAS = new Set([
+  'nome', 'name', 'produto', 'codigo', 'sku', 'referencia', 'ref',
+  'descricao', 'description', 'desc',
+  'categoria', 'category', 'grupo', 'tipo', 'departamento',
+  'cliente', 'razao_social', 'telefone', 'phone', 'celular', 'fone',
+  'whatsapp', 'email', 'e-mail', 'mail', 'endereco', 'address', 'logradouro',
+]);
+
+// Ordem posicional assumida quando não há cabeçalho.
+const COLUNAS_PADRAO = ['nome', 'descricao', 'categoria'];
+
+function semAcento(s) {
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 function parseCSVLine(line, separator) {
   const result = [];
   let current = '';
@@ -12,25 +29,66 @@ function parseCSVLine(line, separator) {
   return result;
 }
 
+// Planilha colada do Excel costuma envolver a linha inteira em aspas e deixar
+// TAB grudado no separador. Nada disso é dado — é formatação.
+function limparLinha(linha) {
+  let s = linha.trim();
+  if (s.length > 1 && s.startsWith('"') && s.endsWith('"') && !s.slice(1, -1).includes('"')) {
+    s = s.slice(1, -1);
+  }
+  return s.replace(/\t*,\t*/g, ',').replace(/\t*;\t*/g, ';');
+}
+
 function detectSeparator(line) {
-  const comma = (line.match(/,/g) || []).length;
-  const semicolon = (line.match(/;/g) || []).length;
-  return semicolon > comma ? ';' : ',';
+  const candidatos = [
+    { sep: ',',  n: (line.match(/,/g)  || []).length },
+    { sep: ';',  n: (line.match(/;/g)  || []).length },
+    { sep: '\t', n: (line.match(/\t/g) || []).length },
+  ];
+  candidatos.sort((a, b) => b.n - a.n);
+  return candidatos[0].n > 0 ? candidatos[0].sep : ',';
 }
 
 function csvToObjects(text) {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return [];
-  const separator = detectSeparator(lines[0]);
-  const header = parseCSVLine(lines[0], separator).map((h) =>
-    h.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  );
+  const linhas = text.split(/\r?\n/).map(limparLinha).filter((l) => l.trim());
+  if (!linhas.length) return [];
+
+  const separator = detectSeparator(linhas[0]);
+  const primeira = parseCSVLine(linhas[0], separator).map((h) => semAcento(h.toLowerCase()));
+
+  // Só é cabeçalho se alguma coluna tiver nome que conhecemos.
+  const temCabecalho = primeira.some((c) => COLUNAS_CONHECIDAS.has(c));
+  const header = temCabecalho ? primeira : [];
+  const dados = (temCabecalho ? linhas.slice(1) : linhas).map((l) => parseCSVLine(l, separator));
+  if (!dados.length) return [];
+
+  // Colunas vazias no meio desalinham os dados em relação ao cabeçalho.
+  const maxCols = Math.max(...dados.map((v) => v.length), header.length);
+  if (header.length && maxCols > header.length) {
+    const vazias = [];
+    for (let c = 0; c < maxCols; c++) {
+      if (dados.every((v) => !v[c] || !v[c].trim())) vazias.push(c);
+    }
+    const remover = new Set(vazias.slice(0, maxCols - header.length));
+    if (remover.size) {
+      for (let i = 0; i < dados.length; i++) {
+        dados[i] = dados[i].filter((_, c) => !remover.has(c));
+      }
+    }
+  }
+
   const rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const values = parseCSVLine(lines[i], separator);
+  for (const values of dados) {
     const row = {};
-    for (let c = 0; c < header.length && c < values.length; c++) {
-      row[header[c]] = values[c];
+    for (let c = 0; c < values.length; c++) {
+      let nome;
+      if (header.length) {
+        nome = header[c] && header[c].trim() ? header[c] : `col_${c + 1}`;
+      } else {
+        // Sem cabeçalho: assume nome, descrição, categoria pela posição.
+        nome = COLUNAS_PADRAO[c] || `col_${c + 1}`;
+      }
+      row[nome] = values[c];
     }
     if (Object.keys(row).length) rows.push(row);
   }

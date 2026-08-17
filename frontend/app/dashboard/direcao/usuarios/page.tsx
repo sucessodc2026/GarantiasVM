@@ -221,7 +221,7 @@ _Acesse o link acima no seu navegador para registrar e gerenciar as solicitaçõ
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 mb-6 animate-slide-up">
           {[
-            { label: 'Vendedores', value: totalVendedores, icon: <ShieldCheck size={18} />, color: '#a78bfa' },
+            { label: 'Vendedores', value: totalVendedores, icon: <ShieldCheck size={18} />, color: 'var(--brand-crimson-fg)' },
             { label: 'Logística', value: totalLogistica, icon: <Truck size={18} />, color: 'var(--info)' },
             { label: 'Ativos', value: totalAtivos, icon: <UserCheck size={18} />, color: 'var(--success)' },
           ].map((s) => (
@@ -302,7 +302,7 @@ _Acesse o link acima no seu navegador para registrar e gerenciar as solicitaçõ
                       style={{
                         background: u.tipo_usuario === 'vendedor' ? 'rgba(167,139,250,0.12)' : 'var(--info-muted)',
                         border: `1px solid ${u.tipo_usuario === 'vendedor' ? 'rgba(167,139,250,0.25)' : 'rgba(56,189,248,0.25)'}`,
-                        color: u.tipo_usuario === 'vendedor' ? '#a78bfa' : 'var(--info)',
+                        color: u.tipo_usuario === 'vendedor' ? 'var(--brand-crimson-fg)' : 'var(--info)',
                       }}>
                       {u.nome.charAt(0).toUpperCase()}
                     </div>
@@ -405,7 +405,7 @@ _Acesse o link acima no seu navegador para registrar e gerenciar as solicitaçõ
                   className={`flex-1 flex flex-col items-center gap-1.5 px-4 py-3 rounded-xl cursor-pointer font-semibold text-sm transition-all duration-150 border-2 ${
                     tipoUsuario === tipo
                       ? tipo === 'vendedor'
-                        ? 'border-[#a78bfa]/60 bg-[#a78bfa]/10 text-[#a78bfa]'
+                        ? 'border-[var(--brand-crimson-fg)]/60 bg-[var(--brand-crimson-fg)]/10 text-[var(--brand-crimson-fg)]'
                         : 'border-[var(--info)]/60 bg-[var(--info-muted)] text-[var(--info)]'
                       : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-muted)] hover:border-[var(--border-medium)]'
                   }`}

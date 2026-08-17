@@ -1,58 +1,66 @@
-const pool = require('../config/database');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs').promises;
-const { google } = require('googleapis');
+const fs = require('fs');
+const fsp = require('fs').promises;
+const crypto = require('crypto');
 
-// Google Drive Setup (Opcional - seguro contra ausência de arquivo de credenciais)
-const FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID;
-let drive = null;
+// Pasta exclusiva desta aplicação. Fica fora do diretório do código para
+// sobreviver a redeploys e para não misturar com outras apps da VPS.
+const UPLOAD_DIR = process.env.UPLOAD_DIR || '/var/www/garantias-vm/uploads';
 
-try {
-  const credentialsPath = path.join(__dirname, '../../config/credentials/google-drive.json');
-  if (require('fs').existsSync(credentialsPath)) {
-    const auth = new google.auth.GoogleAuth({
-      keyFile: credentialsPath,
-      scopes: ['https://www.googleapis.com/auth/drive'],
-    });
-    drive = google.drive({ version: 'v3', auth });
-    console.log('✅ Google Drive API configurada com sucesso.');
-  } else {
-    console.log('ℹ️ Credenciais do Google Drive não encontradas em config/credentials/google-drive.json. O upload para o Google Drive estará desativado.');
-  }
-} catch (err) {
-  console.warn('⚠️ Erro ao inicializar o Google Drive:', err.message);
+// URL pública servida pelo Nginx (location /uploads).
+const PUBLIC_PATH = '/uploads';
+
+const MIMES_PERMITIDOS = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'video/mp4': '.mp4',
+  'video/quicktime': '.mov',
+  'video/x-msvideo': '.avi',
+};
+
+// Guarda por tipo e por mês: evita dezenas de milhares de arquivos numa pasta só.
+function pastaDestino(mimetype) {
+  const tipo = mimetype.startsWith('image/') ? 'fotos' : 'videos';
+  const agora = new Date();
+  const ano = agora.getFullYear();
+  const mes = String(agora.getMonth() + 1).padStart(2, '0');
+  return { tipo, relativa: path.join(tipo, String(ano), mes) };
 }
 
-// Configurar multer para armazenar na memória
-const storage = multer.memoryStorage();
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const { relativa } = pastaDestino(file.mimetype);
+    const destino = path.join(UPLOAD_DIR, relativa);
+    fs.mkdir(destino, { recursive: true }, (err) => cb(err, destino));
+  },
+  filename: (req, file, cb) => {
+    // Nome do usuário nunca vira nome de arquivo: só a extensão do MIME validado.
+    const ext = MIMES_PERMITIDOS[file.mimetype] || '';
+    cb(null, `${Date.now()}_${crypto.randomBytes(8).toString('hex')}${ext}`);
+  },
+});
 
 const fileFilter = (req, file, cb) => {
-  // Aceitar apenas imagens e vídeos
-  const allowedMimes = [
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-    'video/mp4',
-    'video/quicktime',
-    'video/x-msvideo',
-  ];
-
-  if (allowedMimes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Tipo de arquivo não suportado'), false);
-  }
+  if (MIMES_PERMITIDOS[file.mimetype]) return cb(null, true);
+  cb(new Error('Tipo de arquivo não suportado'), false);
 };
 
 const upload = multer({
   storage,
   fileFilter,
-  limits: {
-    fileSize: 500 * 1024 * 1024, // 500MB
-  },
+  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
 });
+
+// Impede que o filename da URL escape da pasta de uploads.
+function caminhoSeguro(filename) {
+  const limpo = path.normalize(filename).replace(/^(\.\.[/\\])+/, '');
+  const completo = path.resolve(UPLOAD_DIR, limpo);
+  if (!completo.startsWith(path.resolve(UPLOAD_DIR))) return null;
+  return completo;
+}
 
 class UploadController {
   static async uploadArquivo(req, res) {
@@ -62,59 +70,19 @@ class UploadController {
       }
 
       const file = req.file;
-      const tipo = file.mimetype.startsWith('image/') ? 'foto' : 'video';
-      let driveUrl = null;
-
-      // Fazer upload para Google Drive (apenas se credenciais estiverem configuradas)
-      if (FOLDER_ID && drive) {
-        try {
-          const { Readable } = require('stream');
-          const bufferStream = Readable.from([file.buffer]);
-
-          const fileMetadata = {
-            name: `${Date.now()}_${file.originalname}`,
-            parents: [FOLDER_ID],
-            description: `Garantia - ${tipo} - ${new Date().toISOString()}`,
-          };
-
-          const response = await drive.files.create({
-            requestBody: fileMetadata,
-            media: {
-              mimeType: file.mimetype,
-              body: bufferStream,
-            },
-            supportsAllDrives: true,
-            fields: 'id, webViewLink, webContentLink',
-          });
-
-          driveUrl = response.data.webViewLink;
-          console.log('✅ Arquivo enviado para Google Drive:', driveUrl);
-
-          // Compartilhar arquivo para leitura pública
-          try {
-            await drive.permissions.create({
-              fileId: response.data.id,
-              resource: {
-                role: 'reader',
-                type: 'anyone',
-              },
-              supportsAllDrives: true,
-            });
-          } catch (e) {
-            console.warn('⚠️ Aviso ao compartilhar arquivo:', e.message);
-          }
-        } catch (driveError) {
-          console.error('❌ Erro ao fazer upload para Google Drive:', driveError.message);
-          throw driveError;
-        }
-      }
+      const { tipo, relativa } = pastaDestino(file.mimetype);
+      const urlRelativa = path.posix.join(
+        PUBLIC_PATH,
+        relativa.split(path.sep).join('/'),
+        file.filename
+      );
 
       res.json({
         mensagem: 'Arquivo enviado com sucesso',
-        tipo,
+        tipo: tipo === 'fotos' ? 'foto' : 'video',
         nome_arquivo: file.originalname,
-        url: driveUrl,
-        drive_url: driveUrl,
+        url: urlRelativa,
+        caminho: urlRelativa,
         tamanho: (file.size / (1024 * 1024)).toFixed(2) + 'MB',
       });
     } catch (erro) {
@@ -125,39 +93,23 @@ class UploadController {
 
   static async obterArquivo(req, res) {
     try {
-      const { filename } = req.params;
-
-      // Validar filename para prevenir path traversal
-      if (filename.includes('..') || filename.includes('/')) {
-        return res.status(400).json({ erro: 'Filename inválido' });
-      }
-
-      const filepath = path.join(__dirname, '../../uploads', filename);
-
-      // Verificar se arquivo existe
-      await fs.access(filepath);
-
-      // Servir arquivo
-      res.sendFile(filepath);
+      const completo = caminhoSeguro(req.params[0] || req.params.filename);
+      if (!completo) return res.status(400).json({ erro: 'Caminho inválido' });
+      if (!fs.existsSync(completo)) return res.status(404).json({ erro: 'Arquivo não encontrado' });
+      res.sendFile(completo);
     } catch (erro) {
       console.error('Erro ao obter arquivo:', erro);
-      res.status(404).json({ erro: 'Arquivo não encontrado' });
+      res.status(500).json({ erro: 'Erro ao obter arquivo' });
     }
   }
 
   static async deletarArquivo(req, res) {
     try {
-      const { filename } = req.params;
-
-      if (filename.includes('..') || filename.includes('/')) {
-        return res.status(400).json({ erro: 'Filename inválido' });
-      }
-
-      const filepath = path.join(__dirname, '../../uploads', filename);
-
-      await fs.unlink(filepath);
-
-      res.json({ mensagem: 'Arquivo deletado com sucesso' });
+      const completo = caminhoSeguro(req.params[0] || req.params.filename);
+      if (!completo) return res.status(400).json({ erro: 'Caminho inválido' });
+      if (!fs.existsSync(completo)) return res.status(404).json({ erro: 'Arquivo não encontrado' });
+      await fsp.unlink(completo);
+      res.json({ mensagem: 'Arquivo removido' });
     } catch (erro) {
       console.error('Erro ao deletar arquivo:', erro);
       res.status(500).json({ erro: 'Erro ao deletar arquivo' });

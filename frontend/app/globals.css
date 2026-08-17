@@ -2,34 +2,47 @@
 @import "tailwindcss";
 
 :root {
-  --bg-base:       #FAFBFB;
-  --bg-card:       #FFFFFF;
-  --bg-elevated:   #FFFFFF;
-  --bg-hover:      #ECF2FF;
-  --bg-input:      #FFFFFF;
+  color-scheme: dark;
 
-  --border-subtle: #EAEFF4;
-  --border-medium: #DFE5EF;
-  --border-strong: #CBD5E1;
+  /* Superfícies derivadas do cinza-azulado da marca (#313D44) */
+  --bg-base:       #0B1014;
+  --bg-card:       #141B20;
+  --bg-elevated:   #1D272D;
+  --bg-hover:      #263239;
+  --bg-input:      #0F161A;
 
-  --accent:        #5D87FF;
-  --accent-hover:  #4570EA;
-  --accent-muted:  #ECF2FF;
+  --border-subtle: #212C33;
+  --border-medium: #313D44;
+  --border-strong: #465660;
 
-  --brand-yellow:  #E7C438;
+  /* Amarelo da marca como cor de ação */
+  --accent:        #FFCB05;
+  --accent-hover:  #FFD73D;
+  --accent-muted:  rgba(255,203,5,0.13);
+  --accent-fg:     #14100A;
 
-  --success:       #23AF15;
-  --success-muted: #E8F7FF;
-  --warning:       #E7C438;
-  --warning-muted: rgba(231,196,56,0.12);
-  --danger:        #EF4444;
-  --danger-muted:  rgba(239,68,68,0.12);
+  --brand-yellow:  #FFCB05;
+  --brand-crimson: #C82254;
+  /* mesma cor clareada, para texto e ícone sobre fundo escuro */
+  --brand-crimson-fg: #F2547C;
+  --brand-slate:   #313D44;
+
+  --shadow-card:   0 1px 2px rgba(0,0,0,0.45);
+  --shadow-pop:    0 12px 32px -8px rgba(0,0,0,0.72);
+
+  --success:       #3DD68C;
+  --success-muted: rgba(61,214,140,0.14);
+  --warning:       #FFCB05;
+  --warning-muted: rgba(255,203,5,0.13);
+  /* Carmim da marca, clareado para ficar legível sobre fundo escuro */
+  --danger:        #F2547C;
+  --danger-muted:  rgba(200,34,84,0.18);
   --info:          #49BEFF;
-  --info-muted:    #E8F7FF;
+  --info-muted:    rgba(73,190,255,0.14);
 
-  --text-primary:   #2A3547;
-  --text-secondary: #7C8FAC;
-  --text-muted:     #7C8FAC;
+  --text-primary:   #E9EFF2;
+  --text-secondary: #9BABB4;
+  --text-muted:     #6F818A;
 }
 
 @theme inline {
@@ -122,4 +135,27 @@ body {
 
 .animate-farol-piscar {
   animation: farolPiscar 5s infinite cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Piscada dos faróis do carro SVG — só opacidade, sem transform */
+@keyframes farolSvg {
+  0%, 3%    { opacity: 0.12; }
+  2%        { opacity: 1; }
+  5%        { opacity: 0.22; }
+  7%        { opacity: 1; }
+  9%, 84%   { opacity: 0.95; }
+  90%, 100% { opacity: 0.12; }
+}
+
+.animate-farol-svg {
+  animation: farolSvg 5s infinite cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes flutuar {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-7px); }
+}
+
+.animate-flutuar {
+  animation: flutuar 6s ease-in-out infinite;
 }

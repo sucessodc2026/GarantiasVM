@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 const pool = require('./config/database');
 
 // Importar rotas
@@ -21,6 +22,32 @@ const PORT = process.env.PORT || 3001;
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Está atrás do Nginx: sem isso o limite valeria para o proxy inteiro,
+// e um único usuário bloquearia a empresa toda.
+app.set('trust proxy', 1);
+
+// Login: trava tentativa de adivinhar senha.
+const limiteLogin = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true, // só conta quem errou a senha
+  message: { erro: 'Muitas tentativas de login. Aguarde 15 minutos.' },
+});
+
+// Uso geral da API: teto alto, só barra automação.
+const limiteGeral = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { erro: 'Muitas requisições. Aguarde um momento.' },
+});
+
+app.use('/api/usuarios/login', limiteLogin);
+app.use('/api', limiteGeral);
 
 // Health check
 app.get('/health', (req, res) => {

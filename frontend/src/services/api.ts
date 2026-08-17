@@ -85,7 +85,8 @@ class ApiService {
   // ============= GARANTIAS =============
   async criarGarantia(data: {
     cliente_id: string;
-    produto_id: string;
+    produto_id?: string;
+    itens?: { produto_id: string; quantidade: number }[];
     descricao_falha: string;
     foto_url?: string;
     video_url?: string;
@@ -122,13 +123,15 @@ class ApiService {
   async atualizarStatusGarantia(
     id: string,
     status: string,
-    observacoes?: string
+    observacoes?: string,
+    motivo_rejeicao?: string
   ): Promise<Garantia> {
     const response = await this.api.patch<{ garantia: Garantia }>(
       `/garantias/${id}/status`,
       {
         status,
         observacoes,
+        motivo_rejeicao,
       }
     );
     return response.data.garantia;
@@ -192,6 +195,23 @@ class ApiService {
     return response.data;
   }
 
+  async criarCliente(data: { nome: string; telefone?: string; email?: string; cpf_cnpj?: string; cidade?: string; cep?: string; endereco?: string }) {
+    const response = await this.api.post('/clientes', data);
+    return response.data;
+  }
+
+  // Cadastra um SKU novo — sozinho, ou como variação de uma família existente.
+  async criarProduto(data: { nome: string; descricao?: string; categoria?: string; familia_existente?: string }) {
+    const response = await this.api.post('/produtos', data);
+    return response.data;
+  }
+
+  // Aplica (ou remove, se foto_url vier vazio) a foto em todos os SKUs do modelo.
+  async atualizarFotoFamilia(familia: string, foto_url?: string) {
+    const response = await this.api.patch('/produtos/familia/foto', { familia, foto_url });
+    return response.data;
+  }
+
   async atualizarFotoProduto(id: string, foto_url: string) {
     const response = await this.api.patch(`/produtos/${id}/foto`, { foto_url });
     return response.data;
@@ -199,6 +219,22 @@ class ApiService {
 
   async removerFotoProduto(id: string) {
     const response = await this.api.delete(`/produtos/${id}/foto`);
+    return response.data;
+  }
+
+  // ============= BLING (OAuth2) =============
+  async blingStatus() {
+    const response = await this.api.get('/bling/status');
+    return response.data;
+  }
+
+  async blingOauthIniciar() {
+    const response = await this.api.get('/bling/oauth/iniciar');
+    return response.data; // { url }
+  }
+
+  async blingSincronizar() {
+    const response = await this.api.post('/bling/sincronizar');
     return response.data;
   }
 

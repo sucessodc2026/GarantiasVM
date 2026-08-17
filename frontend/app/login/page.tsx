@@ -32,7 +32,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[var(--bg-base)] flex">
       {/* Painel esquerdo — branding */}
-      <div className="flex-1 hidden lg:flex flex-col justify-between p-12 relative overflow-hidden"
+      <div className="flex-1 hidden lg:flex flex-col justify-center p-12 relative overflow-hidden"
         style={{ background: 'linear-gradient(135deg, #070A13 0%, #0C0F17 50%, #04060A 100%)' }}
       >
         <div className="absolute top-[-80px] left-[-80px] w-[400px] h-[400px] rounded-full pointer-events-none"
@@ -40,35 +40,35 @@ export default function LoginPage() {
         <div className="absolute bottom-[-60px] right-[-60px] w-[360px] h-[360px] rounded-full pointer-events-none"
           style={{ background: 'radial-gradient(circle, rgba(73,190,255,0.04) 0%, transparent 70%)' }} />
 
-        <div className="relative z-10">
-          <img src="/logo.png" alt="GarantiaHub" className="h-32 w-auto brightness-0 invert" />
+        {/* Logo fixa no topo */}
+        <div className="absolute top-12 left-12 z-10">
+          <img src="/logo.png" alt="Garantias VM" className="h-24 w-auto brightness-0 invert" />
         </div>
 
-        {/* Carro com Faróis Piscantes */}
-        <div className="relative z-10 w-full max-w-[360px] mx-auto aspect-square flex items-center justify-center">
-          <img 
-            src="/carro_login.png" 
-            alt="Carro Garantias" 
-            className="w-full h-auto object-contain mix-blend-screen" 
-          />
-          
-          {/* Brilho Farol Esquerdo */}
-          <div className="absolute left-[19%] top-[51%] w-6 h-6 rounded-full bg-cyan-300 pointer-events-none blur-[4px] shadow-[0_0_20px_#22d3ee] animate-farol-piscar" />
-          <div className="absolute left-[19%] top-[51%] w-2 h-2 rounded-full bg-white pointer-events-none blur-[0.5px] shadow-[0_0_10px_#fff] animate-farol-piscar" />
+        {/* Bloco central: carro 3D + texto no mesmo eixo */}
+        <div className="relative z-10 w-full max-w-[560px] mx-auto">
+          {/* Carro com farol piscante */}
+          <div className="relative w-full mb-4">
+            <img
+              src="/carro-gli.webp"
+              alt="Volkswagen Jetta GLI"
+              className="w-full h-auto animate-flutuar"
+              style={{ filter: 'drop-shadow(0 24px 32px rgba(0,0,0,0.55))' }}
+            />
+            {/* Brilho do farol principal */}
+            <div className="absolute left-[51%] top-[50%] w-14 h-5 rounded-full bg-cyan-100 pointer-events-none blur-[9px] animate-farol-piscar" />
+            <div className="absolute left-[51%] top-[50%] w-6 h-2 rounded-full bg-white pointer-events-none blur-[3px] animate-farol-piscar" />
+          </div>
 
-          {/* Brilho Farol Direito */}
-          <div className="absolute left-[81%] top-[51%] w-6 h-6 rounded-full bg-cyan-300 pointer-events-none blur-[4px] shadow-[0_0_20px_#22d3ee] animate-farol-piscar" />
-          <div className="absolute left-[81%] top-[51%] w-2 h-2 rounded-full bg-white pointer-events-none blur-[0.5px] shadow-[0_0_10px_#fff] animate-farol-piscar" />
-        </div>
-
-        <div className="relative z-10 max-w-sm">
-          <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-white mb-5">
-            Gestão de garantias{' '}
-            <span className="text-[#5D87FF]">simplificada</span>
-          </h1>
-          <p className="text-base text-slate-400 leading-relaxed">
-            Plataforma centralizada para registro, análise e controle de garantias com inteligência operacional.
-          </p>
+          <div className="text-center">
+            <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-white mb-4">
+              Gestão de garantias{' '}
+              <span className="text-[var(--accent)]">simplificada</span>
+            </h1>
+            <p className="text-base text-[var(--text-secondary)] leading-relaxed">
+              Plataforma centralizada para registro, análise e controle de garantias com inteligência operacional.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -134,10 +134,10 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-[var(--accent)] text-white font-semibold rounded-xl px-5 py-2.5 text-sm transition-all duration-150 hover:bg-[var(--accent-hover)] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-1"
+              className="w-full bg-[var(--accent)] text-[var(--accent-fg)] font-semibold rounded-xl px-5 py-2.5 text-sm transition-all duration-150 hover:bg-[var(--accent-hover)] disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-1"
             >
               {isLoading ? (
-                <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
               ) : null}
               {isLoading ? 'Verificando...' : 'Acessar plataforma'}
             </button>
